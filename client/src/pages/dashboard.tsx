@@ -81,7 +81,7 @@ export default function Dashboard() {
     },
   ];
 
-  if (isLoading || kpisLoading) {
+  if (kpisLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
