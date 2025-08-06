@@ -18,22 +18,7 @@ export default function Inventory() {
   const { toast } = useToast();
 
   const { data: inventory, isLoading: inventoryLoading } = useQuery({
-    queryKey: ["/api/inventory"],
-    queryParams: { taskId: "default" },
-    
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "未授权",
-          description: "您已退出登录，正在重新登录...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/auth";
-        }, 500);
-        return;
-      }
-    },
+    queryKey: ["/api/inventory?taskId=default"],
   });
 
   const inventoryTrendData = {

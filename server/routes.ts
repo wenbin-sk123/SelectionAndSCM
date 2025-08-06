@@ -304,6 +304,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/suppliers", isAuthenticated, async (req, res) => {
     try {
       const suppliers = await storage.getSuppliers();
+      
+      // Return sample data if no suppliers exist
+      if (!suppliers || suppliers.length === 0) {
+        const sampleSuppliers = [
+          {
+            id: '1',
+            name: 'ABC电子科技有限公司',
+            contactPerson: '张经理',
+            phone: '13800138001',
+            email: 'zhang@abc.com',
+            address: '深圳市南山区科技园',
+            category: '电子产品',
+            rating: 4.8,
+            cooperationYears: 2
+          },
+          {
+            id: '2',
+            name: '智能家居供应商',
+            contactPerson: '李总',
+            phone: '13900139002',
+            email: 'li@smarthome.com',
+            address: '广州市天河区',
+            category: '智能设备',
+            rating: 4.5,
+            cooperationYears: 1
+          }
+        ];
+        return res.json(sampleSuppliers);
+      }
+      
       res.json(suppliers);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
@@ -369,6 +399,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const inventory = await storage.getInventoryRecords(userId, taskId);
+      
+      // Return sample data if no records exist
+      if (!inventory || inventory.length === 0) {
+        const sampleInventory = [
+          {
+            id: '1',
+            productId: '1', 
+            productName: 'iPhone 15 Pro Max 手机壳',
+            quantity: 85,
+            safetyStock: 50,
+            unitPrice: 85,
+            totalValue: 7225,
+            lastUpdated: new Date().toISOString()
+          },
+          {
+            id: '2',
+            productId: '2',
+            productName: 'AirPods Pro 蓝牙耳机',
+            quantity: 15,
+            safetyStock: 30,
+            unitPrice: 1200,
+            totalValue: 18000,
+            lastUpdated: new Date().toISOString()
+          }
+        ];
+        return res.json(sampleInventory);
+      }
+      
       res.json(inventory);
     } catch (error) {
       console.error("Error fetching inventory:", error);
@@ -394,6 +452,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const taskId = req.query.taskId as string;
       const orders = await storage.getOrders(userId, taskId);
+      
+      // Return sample data if no orders exist
+      if (!orders || orders.length === 0) {
+        const sampleOrders = [
+          {
+            id: '1',
+            orderNumber: 'PO-2024001',
+            supplierId: '1',
+            supplierName: 'ABC电子科技',
+            productName: 'iPhone 15 Pro Max 手机壳',
+            quantity: 100,
+            unitPrice: 85,
+            totalAmount: 8500,
+            status: 'completed',
+            orderDate: new Date('2024-01-15').toISOString()
+          },
+          {
+            id: '2',
+            orderNumber: 'PO-2024002',
+            supplierId: '2',
+            supplierName: '智能家居供应商',
+            productName: '智能音箱',
+            quantity: 50,
+            unitPrice: 240,
+            totalAmount: 12000,
+            status: 'pending',
+            orderDate: new Date('2024-01-16').toISOString()
+          }
+        ];
+        return res.json(sampleOrders);
+      }
+      
       res.json(orders);
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -413,6 +503,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Market Routes
+  app.get("/api/market", isAuthenticated, async (req, res) => {
+    try {
+      // Return sample market data
+      const marketData = {
+        trends: [
+          {
+            id: '1',
+            product: '智能手机',
+            trend: 'rising',
+            changePercent: 15.2,
+            volume: 258000,
+            avgPrice: 3500
+          },
+          {
+            id: '2',
+            product: '蓝牙耳机',
+            trend: 'stable',
+            changePercent: 2.1,
+            volume: 185000,
+            avgPrice: 580
+          },
+          {
+            id: '3',
+            product: '智能手表',
+            trend: 'falling',
+            changePercent: -5.8,
+            volume: 92000,
+            avgPrice: 1200
+          }
+        ],
+        competitors: [
+          {
+            id: '1',
+            name: '竞争对手A',
+            marketShare: 25,
+            avgPrice: 3200,
+            strategy: '低价策略'
+          },
+          {
+            id: '2',
+            name: '竞争对手B',
+            marketShare: 20,
+            avgPrice: 3800,
+            strategy: '品质策略'
+          }
+        ],
+        recommendations: [
+          {
+            id: '1',
+            product: '无线充电器',
+            reason: '市场需求增长迅速',
+            expectedProfit: 35
+          },
+          {
+            id: '2',
+            product: '手机支架',
+            reason: '高利润率产品',
+            expectedProfit: 45
+          }
+        ]
+      };
+      res.json(marketData);
+    } catch (error) {
+      console.error("Error fetching market data:", error);
+      res.status(500).json({ message: "Failed to fetch market data" });
+    }
+  });
+
   // Financial Routes
   app.get("/api/financial", isAuthenticated, async (req: any, res) => {
     try {
@@ -424,6 +583,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const records = await storage.getFinancialRecords(userId, taskId);
+      
+      // Return sample data if no records exist
+      if (!records || records.length === 0) {
+        const sampleRecords = [
+          {
+            id: '1',
+            type: 'revenue',
+            amount: 32000,
+            category: '销售收入',
+            description: '本月产品销售收入',
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: '2',
+            type: 'expense',
+            amount: 18000,
+            category: '采购成本',
+            description: '采购商品成本',
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: '3',
+            type: 'profit',
+            amount: 14000,
+            category: '净利润',
+            description: '本月净利润',
+            createdAt: new Date().toISOString()
+          }
+        ];
+        return res.json(sampleRecords);
+      }
+      
       res.json(records);
     } catch (error) {
       console.error("Error fetching financial records:", error);

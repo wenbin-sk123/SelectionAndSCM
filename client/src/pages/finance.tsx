@@ -15,22 +15,7 @@ export default function Finance() {
   const { toast } = useToast();
 
   const { data: financialRecords, isLoading: recordsLoading } = useQuery({
-    queryKey: ["/api/financial"],
-    queryParams: { taskId: "default" },
-    
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "未授权",
-          description: "您已退出登录，正在重新登录...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/auth";
-        }, 500);
-        return;
-      }
-    },
+    queryKey: ["/api/financial?taskId=default"],
   });
 
   const revenueData = {
