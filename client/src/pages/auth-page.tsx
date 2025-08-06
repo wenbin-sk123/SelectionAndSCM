@@ -15,19 +15,41 @@ import { Redirect } from "wouter";
 
 const loginSchema = z.object({
   loginType: z.enum(["email", "phone"]),
-  email: z.string().email("请输入有效的邮箱地址").optional(),
-  phone: z.string().regex(/^1[3-9]\d{9}$/, "请输入有效的手机号").optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
   password: z.string().min(6, "密码至少6位"),
-}).refine((data) => {
-  if (data.loginType === "email" && !data.email) {
-    return false;
+}).superRefine((data, ctx) => {
+  if (data.loginType === "email") {
+    if (!data.email || data.email.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "请输入邮箱地址",
+        path: ["email"],
+      });
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "请输入有效的邮箱地址",
+        path: ["email"],
+      });
+    }
   }
-  if (data.loginType === "phone" && !data.phone) {
-    return false;
+  
+  if (data.loginType === "phone") {
+    if (!data.phone || data.phone.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "请输入手机号",
+        path: ["phone"],
+      });
+    } else if (!/^1[3-9]\d{9}$/.test(data.phone)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "请输入有效的手机号",
+        path: ["phone"],
+      });
+    }
   }
-  return true;
-}, {
-  message: "请输入邮箱或手机号",
 });
 
 const registerSchema = z.object({
@@ -76,9 +98,11 @@ export default function AuthPage() {
   }
 
   const onLogin = (data: z.infer<typeof loginSchema>) => {
+    console.log("Login form submitted with data:", data);
     const credentials = data.loginType === "email" 
       ? { email: data.email, password: data.password }
       : { phone: data.phone, password: data.password };
+    console.log("Sending credentials:", credentials);
     loginMutation.mutate(credentials);
   };
 
@@ -130,7 +154,18 @@ export default function AuthPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>登录方式</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select 
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                // Clear the other field when switching login type
+                                if (value === "email") {
+                                  loginForm.setValue("phone", "");
+                                } else {
+                                  loginForm.setValue("email", "");
+                                }
+                              }} 
+                              defaultValue={field.value}
+                            >
                               <FormControl>
                                 <SelectTrigger data-testid="select-login-type">
                                   <SelectValue />
@@ -218,6 +253,12 @@ export default function AuthPage() {
                           "登录"
                         )}
                       </Button>
+                      {/* Debug info */}
+                      {Object.keys(loginForm.formState.errors).length > 0 && (
+                        <div className="text-red-500 text-sm">
+                          {JSON.stringify(loginForm.formState.errors)}
+                        </div>
+                      )}
                     </form>
                   </Form>
                 </CardContent>
