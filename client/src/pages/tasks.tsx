@@ -62,6 +62,10 @@ export default function Tasks() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<any>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -135,6 +139,98 @@ export default function Tasks() {
       });
     },
   });
+
+  const editForm = useForm<CreateTaskForm>({
+    resolver: zodResolver(createTaskSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      initialBudget: "10000",
+      durationDays: 7,
+      marketScenario: {
+        category: "",
+        difficulty: "",
+      },
+      targetKpis: {
+        revenueTarget: 0,
+        profitMargin: 0,
+        inventoryTurnover: 0,
+      },
+      status: "draft",
+    },
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: async (data: CreateTaskForm) => {
+      if (!selectedTask) return;
+      return await apiRequest("PATCH", `/api/tasks/${selectedTask.id}`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "成功",
+        description: "任务更新成功",
+      });
+      setEditDialogOpen(false);
+      setSelectedTask(null);
+      editForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "更新失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      return await apiRequest("DELETE", `/api/tasks/${taskId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "成功",
+        description: "任务删除成功",
+      });
+      setDeleteDialogOpen(false);
+      setTaskToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "删除失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditTask = (task: any) => {
+    setSelectedTask(task);
+    editForm.reset({
+      name: task.name,
+      description: task.description || "",
+      initialBudget: task.initialBudget,
+      durationDays: task.durationDays,
+      marketScenario: task.marketScenario || {
+        category: "",
+        difficulty: "",
+      },
+      targetKpis: task.targetKpis || {
+        revenueTarget: 0,
+        profitMargin: 0,
+        inventoryTurnover: 0,
+      },
+      status: task.status,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteTask = (task: any) => {
+    setTaskToDelete(task);
+    setDeleteDialogOpen(true);
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -338,20 +434,43 @@ export default function Tasks() {
                             ) : '--'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <Button 
-                              variant="link" 
-                              className="text-primary hover:text-primary/80 mr-3"
-                              data-testid={`button-continue-${task.id}`}
-                            >
-                              {task.status === 'completed' ? '复习' : '继续'}
-                            </Button>
-                            <Button 
-                              variant="link" 
-                              className="text-neutral-600 hover:text-neutral-800"
-                              data-testid={`button-details-${task.id}`}
-                            >
-                              详情
-                            </Button>
+                            {(user?.role === 'teacher' || user?.role === 'admin') ? (
+                              <>
+                                <Button 
+                                  variant="link" 
+                                  className="text-primary hover:text-primary/80 mr-3"
+                                  data-testid={`button-edit-${task.id}`}
+                                  onClick={() => handleEditTask(task)}
+                                >
+                                  编辑
+                                </Button>
+                                <Button 
+                                  variant="link" 
+                                  className="text-red-600 hover:text-red-800"
+                                  data-testid={`button-delete-${task.id}`}
+                                  onClick={() => handleDeleteTask(task)}
+                                >
+                                  删除
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button 
+                                  variant="link" 
+                                  className="text-primary hover:text-primary/80 mr-3"
+                                  data-testid={`button-continue-${task.id}`}
+                                >
+                                  {task.status === 'completed' ? '复习' : '继续'}
+                                </Button>
+                                <Button 
+                                  variant="link" 
+                                  className="text-neutral-600 hover:text-neutral-800"
+                                  data-testid={`button-details-${task.id}`}
+                                >
+                                  详情
+                                </Button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -601,6 +720,208 @@ export default function Tasks() {
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>编辑任务</DialogTitle>
+            <DialogDescription>
+              修改实训任务信息
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(data => updateTaskMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>任务名称</FormLabel>
+                    <FormControl>
+                      <Input placeholder="输入任务名称" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>任务描述</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="详细描述任务内容" 
+                        rows={3}
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="initialBudget"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>初始预算（元）</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="text"
+                        placeholder="输入初始预算金额" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="marketScenario.category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>市场场景</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择场景" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="服装">服装</SelectItem>
+                          <SelectItem value="电子产品">电子产品</SelectItem>
+                          <SelectItem value="食品">食品</SelectItem>
+                          <SelectItem value="家居用品">家居用品</SelectItem>
+                          <SelectItem value="运动用品">运动用品</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="marketScenario.difficulty"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>难度等级</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择难度" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="beginner">初级</SelectItem>
+                          <SelectItem value="intermediate">中级</SelectItem>
+                          <SelectItem value="advanced">高级</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={editForm.control}
+                name="durationDays"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>持续天数</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="7" 
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>任务状态</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="选择状态" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="draft">草稿</SelectItem>
+                        <SelectItem value="active">激活</SelectItem>
+                        <SelectItem value="archived">归档</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-4 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditDialogOpen(false)}
+                >
+                  取消
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={updateTaskMutation.isPending}
+                  className="bg-primary text-white hover:bg-primary/90"
+                >
+                  {updateTaskMutation.isPending ? "更新中..." : "更新任务"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>
+              您确定要删除任务 "{taskToDelete?.name}" 吗？此操作无法撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-4 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              取消
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => taskToDelete && deleteTaskMutation.mutate(taskToDelete.id)}
+              disabled={deleteTaskMutation.isPending}
+            >
+              {deleteTaskMutation.isPending ? "删除中..." : "确认删除"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
