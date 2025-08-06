@@ -98,7 +98,7 @@ export default function Procurement() {
   const supplierData = suppliers || mockSuppliers;
   const orderData = orders || mockOrders;
 
-  if (isLoading || suppliersLoading || ordersLoading) {
+  if (suppliersLoading || ordersLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

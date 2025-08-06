@@ -80,7 +80,7 @@ export default function Finance() {
     { name: '其他费用', amount: 2950, percentage: 3, color: 'info' },
   ];
 
-  if (isLoading || recordsLoading) {
+  if (recordsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

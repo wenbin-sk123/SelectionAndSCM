@@ -74,7 +74,7 @@ export default function Market() {
     { name: '品牌忠诚度', value: 40, color: 'success' },
   ];
 
-  if (isLoading || marketLoading) {
+  if (marketLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

@@ -116,7 +116,7 @@ export default function Inventory() {
     }
   };
 
-  if (isLoading || inventoryLoading) {
+  if (inventoryLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
