@@ -598,21 +598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Market Routes with Dynamic Data
-  app.get("/api/market", isAuthenticated, async (req, res) => {
-    try {
-      const { MarketService } = require('./services/marketService');
-      
-      // Generate dynamic market data for multiple categories
-      const categories = ['电子产品', '智能家居', '配件'];
-      const marketAnalysis = await MarketService.analyzeMarketTrends(categories);
-      
-      res.json(marketAnalysis);
-    } catch (error: any) {
-      console.error("Error fetching market data:", error);
-      res.status(500).json({ message: error.message || "获取市场数据失败" });
-    }
-  });
+
 
   app.get("/api/market/:category", isAuthenticated, async (req, res) => {
     try {
@@ -709,7 +695,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Market Data Routes
   app.get("/api/market", isAuthenticated, async (req, res) => {
     try {
-      const marketData = await storage.getMarketData();
+      const { MarketService } = await import('./services/marketService');
+      const marketData = await MarketService.getMarketTrends();
       res.json(marketData);
     } catch (error) {
       console.error("Error fetching market data:", error);
