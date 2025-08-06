@@ -1,8 +1,9 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -10,10 +11,52 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Plus, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const createTaskSchema = z.object({
+  title: z.string().min(1, "任务标题不能为空"),
+  description: z.string().min(1, "任务描述不能为空"),
+  category: z.string().min(1, "请选择任务类别"),
+  difficulty: z.string().min(1, "请选择难度等级"),
+  duration: z.number().min(1, "持续天数必须大于0").max(30, "持续天数不能超过30天"),
+  maxScore: z.number().min(1, "最高分数必须大于0").max(100, "最高分数不能超过100"),
+  objectives: z.string().min(1, "任务目标不能为空"),
+  requirements: z.string().min(1, "任务要求不能为空"),
+  status: z.string().default("draft"),
+});
+
+type CreateTaskForm = z.infer<typeof createTaskSchema>;
 
 export default function Tasks() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -48,6 +91,54 @@ export default function Tasks() {
   });
 
   const canCreateTask = user?.role === 'teacher' || user?.role === 'admin';
+
+  const form = useForm<CreateTaskForm>({
+    resolver: zodResolver(createTaskSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      category: "",
+      difficulty: "",
+      duration: 7,
+      maxScore: 100,
+      objectives: "",
+      requirements: "",
+      status: "draft",
+    },
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (data: CreateTaskForm) => {
+      return await apiRequest("POST", "/api/tasks", data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "任务创建成功",
+        description: "新的实训任务已创建",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setCreateDialogOpen(false);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "未授权",
+          description: "您已退出登录，正在重新登录...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/auth";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "创建失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -114,6 +205,7 @@ export default function Tasks() {
                 <Button 
                   className="bg-primary text-white hover:bg-primary/90"
                   data-testid="button-create-task"
+                  onClick={() => setCreateDialogOpen(true)}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   创建新任务
@@ -281,6 +373,220 @@ export default function Tasks() {
           </Card>
         </div>
       </main>
+
+      {/* Create Task Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>创建实训任务</DialogTitle>
+            <DialogDescription>
+              创建新的实训任务供学生练习
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(data => createTaskMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>任务标题</FormLabel>
+                    <FormControl>
+                      <Input placeholder="输入任务标题" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>任务描述</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="详细描述任务内容" 
+                        rows={3}
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>任务类别</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择类别" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="procurement">采购管理</SelectItem>
+                          <SelectItem value="inventory">库存管理</SelectItem>
+                          <SelectItem value="pricing">定价策略</SelectItem>
+                          <SelectItem value="marketing">市场营销</SelectItem>
+                          <SelectItem value="comprehensive">综合实训</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="difficulty"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>难度等级</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择难度" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="beginner">初级</SelectItem>
+                          <SelectItem value="intermediate">中级</SelectItem>
+                          <SelectItem value="advanced">高级</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>持续天数</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="7" 
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="maxScore"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>最高分数</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="100" 
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="objectives"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>任务目标</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="描述任务目标（可用换行分点列出）" 
+                        rows={3}
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="requirements"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>任务要求</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="描述任务要求和评分标准" 
+                        rows={3}
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>任务状态</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="选择状态" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="draft">草稿</SelectItem>
+                        <SelectItem value="active">激活</SelectItem>
+                        <SelectItem value="archived">归档</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-4 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCreateDialogOpen(false)}
+                >
+                  取消
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createTaskMutation.isPending}
+                  className="bg-primary text-white hover:bg-primary/90"
+                >
+                  {createTaskMutation.isPending ? "创建中..." : "创建任务"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
