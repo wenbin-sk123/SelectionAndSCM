@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth.tsx";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -89,16 +89,14 @@ export default function Sidebar() {
         <div className="bg-gray-100 p-3 rounded-md">
           <div className="flex items-center mb-2">
             <img
-              src={user?.profileImageUrl || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"}
+              src={user?.avatarUrl || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"}
               alt="用户头像"
               className="w-10 h-10 rounded-full object-cover mr-3"
               data-testid="img-user-avatar"
             />
             <div>
               <p className="font-medium text-neutral-800" data-testid="text-user-name">
-                {user?.firstName && user?.lastName 
-                  ? `${user.firstName} ${user.lastName}`
-                  : user?.email?.split('@')[0] || "用户"}
+                {user?.name || user?.email?.split('@')[0] || user?.phone || "用户"}
               </p>
               <p className="text-xs text-neutral-600" data-testid="text-student-id">
                 学号: {user?.studentId || "N/A"}

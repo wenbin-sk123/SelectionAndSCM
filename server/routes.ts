@@ -2,7 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, hashPassword, comparePasswords } from "./auth";
+import {
+  ObjectStorageService,
+  ObjectNotFoundError,
+} from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
 import { 
   insertTrainingTaskSchema,
   insertStudentProgressSchema,
@@ -13,30 +18,218 @@ import {
   insertSupplierSchema,
   insertProductSchema,
   insertMarketDataSchema,
+  insertUserSchema,
 } from "@shared/schema";
 import { z } from "zod";
+import passport from "passport";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
-  await setupAuth(app);
+  setupAuth(app);
 
-  // Auth routes
+  // Registration route
+  app.post("/api/register", async (req, res, next) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      if (userData.email) {
+        const existingUser = await storage.getUserByEmail(userData.email);
+        if (existingUser) {
+          return res.status(400).json({ message: "邮箱已被注册" });
+        }
+      }
+      
+      if (userData.phone) {
+        const existingUser = await storage.getUserByPhone(userData.phone);
+        if (existingUser) {
+          return res.status(400).json({ message: "手机号已被注册" });
+        }
+      }
+
+      // Hash password and create user
+      const hashedPassword = await hashPassword(userData.password);
+      const user = await storage.createUser({
+        ...userData,
+        password: hashedPassword,
+      });
+
+      // Log the user in
+      req.login(user, (err) => {
+        if (err) return next(err);
+        const { password, ...userWithoutPassword } = user;
+        res.status(201).json(userWithoutPassword);
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "注册失败" });
+    }
+  });
+
+  // Login routes
+  app.post("/api/login", async (req, res, next) => {
+    const { email, phone, password } = req.body;
+    
+    if (!password || (!email && !phone)) {
+      return res.status(400).json({ message: "请提供邮箱或手机号以及密码" });
+    }
+
+    const strategy = email ? 'local-email' : 'local-phone';
+    
+    passport.authenticate(strategy, (err: any, user: any, info: any) => {
+      if (err) return next(err);
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "登录失败" });
+      }
+      
+      req.login(user, (err) => {
+        if (err) return next(err);
+        const { password, ...userWithoutPassword } = user;
+        res.status(200).json(userWithoutPassword);
+      });
+    })(req, res, next);
+  });
+
+  // Logout route
+  app.post("/api/logout", (req, res, next) => {
+    req.logout((err) => {
+      if (err) return next(err);
+      res.sendStatus(200);
+    });
+  });
+
+  // Get current user
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      const user = req.user;
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
+  // Update user profile
+  app.put('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const updates: any = {};
+      
+      // Only allow updating certain fields
+      if (req.body.name !== undefined) updates.name = req.body.name;
+      if (req.body.avatarUrl !== undefined) updates.avatarUrl = req.body.avatarUrl;
+      
+      const updatedUser = await storage.updateUser(userId, updates);
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "更新失败" });
+    }
+  });
+
+  // Change password
+  app.put('/api/auth/password', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "请提供当前密码和新密码" });
+      }
+      
+      // Verify current password
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "用户不存在" });
+      }
+      
+      const isValid = await comparePasswords(currentPassword, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "当前密码错误" });
+      }
+      
+      // Update password
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(userId, { password: hashedPassword });
+      
+      res.json({ message: "密码修改成功" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ message: "密码修改失败" });
+    }
+  });
+
+  // Object storage routes for avatar upload
+  app.get("/objects/:objectPath(*)", isAuthenticated, async (req, res) => {
+    const userId = req.user?.id;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error checking object access:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    res.json({ uploadURL });
+  });
+
+  app.put("/api/avatar", isAuthenticated, async (req: any, res) => {
+    if (!req.body.avatarURL) {
+      return res.status(400).json({ error: "avatarURL is required" });
+    }
+
+    const userId = req.user.id;
+
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.avatarURL,
+        {
+          owner: userId,
+          visibility: "public", // Avatar images are public
+        },
+      );
+
+      // Update user avatar in database
+      const updatedUser = await storage.updateUser(userId, { avatarUrl: objectPath });
+      const { password, ...userWithoutPassword } = updatedUser;
+      
+      res.status(200).json({
+        user: userWithoutPassword,
+        objectPath: objectPath,
+      });
+    } catch (error) {
+      console.error("Error setting avatar:", error);
+      res.status(500).json({ error: "头像上传失败" });
+    }
+  });
+
   // Training Task Routes
   app.get("/api/tasks", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = req.user.id;
+      const user = req.user;
       
       if (user?.role === 'teacher' || user?.role === 'admin') {
         const tasks = await storage.getTrainingTasks(userId);
@@ -53,8 +246,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tasks", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = req.user.id;
+      const user = req.user;
       
       if (user?.role !== 'teacher' && user?.role !== 'admin') {
         return res.status(403).json({ message: "Only teachers and admins can create tasks" });
@@ -85,7 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Student Progress Routes
   app.get("/api/progress", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const taskId = req.query.taskId as string;
       const progress = await storage.getStudentProgress(userId, taskId);
       res.json(progress);
@@ -97,7 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/progress", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const progressData = insertStudentProgressSchema.parse({ ...req.body, userId });
       const progress = await storage.upsertStudentProgress(progressData);
       res.json(progress);
@@ -120,8 +313,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/suppliers", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = req.user.id;
+      const user = req.user;
       
       if (user?.role !== 'teacher' && user?.role !== 'admin') {
         return res.status(403).json({ message: "Only teachers and admins can create suppliers" });
@@ -149,8 +342,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/products", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = req.user.id;
+      const user = req.user;
       
       if (user?.role !== 'teacher' && user?.role !== 'admin') {
         return res.status(403).json({ message: "Only teachers and admins can create products" });
@@ -168,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Inventory Routes
   app.get("/api/inventory", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const taskId = req.query.taskId as string;
       
       if (!taskId) {
@@ -185,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/inventory", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const inventoryData = insertInventoryRecordSchema.parse({ ...req.body, userId });
       const record = await storage.upsertInventoryRecord(inventoryData);
       res.json(record);
@@ -198,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Order Routes
   app.get("/api/orders", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const taskId = req.query.taskId as string;
       const orders = await storage.getOrders(userId, taskId);
       res.json(orders);
@@ -210,7 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const orderData = insertOrderSchema.parse({ ...req.body, userId });
       const order = await storage.createOrder(orderData);
       res.json(order);
@@ -223,7 +416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Financial Routes
   app.get("/api/financial", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const taskId = req.query.taskId as string;
       
       if (!taskId) {
@@ -240,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/financial", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const recordData = insertFinancialRecordSchema.parse({ ...req.body, userId });
       const record = await storage.createFinancialRecord(recordData);
       res.json(record);
@@ -253,7 +446,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Evaluation Routes
   app.get("/api/evaluations", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const taskId = req.query.taskId as string;
       const evaluations = await storage.getEvaluationRecords(userId, taskId);
       res.json(evaluations);
@@ -265,7 +458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/evaluations", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const evaluationData = insertEvaluationRecordSchema.parse({ ...req.body, userId });
       const evaluation = await storage.createEvaluationRecord(evaluationData);
       res.json(evaluation);
@@ -288,8 +481,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/market/:category", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = req.user.id;
+      const user = req.user;
       
       if (user?.role !== 'teacher' && user?.role !== 'admin') {
         return res.status(403).json({ message: "Only teachers and admins can update market data" });
@@ -308,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard Analytics Routes
   app.get("/api/dashboard/kpis", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const taskId = req.query.taskId as string;
 
       if (!taskId) {

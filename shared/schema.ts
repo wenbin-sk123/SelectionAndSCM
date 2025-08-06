@@ -29,13 +29,14 @@ export const sessions = pgTable(
 // User roles enum
 export const userRoleEnum = pgEnum('user_role', ['student', 'teacher', 'admin']);
 
-// User storage table for Replit Auth
+// User storage table with conventional authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
+  phone: varchar("phone", { length: 20 }).unique(),
+  password: varchar("password", { length: 255 }).notNull(),
+  name: varchar("name", { length: 100 }),
+  avatarUrl: varchar("avatar_url", { length: 500 }),
   role: userRoleEnum("role").default('student'),
   studentId: varchar("student_id"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -232,6 +233,14 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  email: z.string().email("请输入有效的邮箱地址").optional(),
+  phone: z.string().regex(/^1[3-9]\d{9}$/, "请输入有效的手机号码").optional(),
+  password: z.string().min(6, "密码至少6个字符"),
+  name: z.string().min(1, "请输入姓名").optional(),
+}).refine(data => data.email || data.phone, {
+  message: "请提供邮箱或手机号",
+  path: ["email"],
 });
 
 export const insertTrainingTaskSchema = createInsertSchema(trainingTasks).omit({
@@ -283,7 +292,7 @@ export const insertMarketDataSchema = createInsertSchema(marketData).omit({
 });
 
 // Types
-export type UpsertUser = typeof users.$inferInsert;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type TrainingTask = typeof trainingTasks.$inferSelect;
 export type InsertTrainingTask = z.infer<typeof insertTrainingTaskSchema>;
