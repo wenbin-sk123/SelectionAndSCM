@@ -18,6 +18,14 @@ The system provides a complete workflow simulation covering market research, sup
 - Added task creation UI dialog for teachers/admins with comprehensive form validation
 - All data now served exclusively from database with no sample data fallbacks
 
+### Frontend Data Connection Updates
+- **Procurement Page**: Fixed TanStack Query v5 syntax, connected to real supplier/order APIs, added negotiation dialog
+- **Finance Page**: Refactored to use real financial API data with dynamic calculations and chart rendering
+- **Inventory Page**: Connected to real inventory data and statistics APIs
+- **Market Page**: Fixed query syntax, connected to market data APIs
+- **Reports Page**: Fixed query syntax, connected to evaluations and task statistics APIs
+- All pages now use proper authentication checks and redirect to login when unauthorized
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

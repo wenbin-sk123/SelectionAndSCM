@@ -16,23 +16,28 @@ import { BarChart3, Download, Calendar } from "lucide-react";
 
 export default function Reports() {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
 
-  const { data: evaluations, isLoading: evaluationsLoading } = useQuery({
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      toast({
+        title: "未授权",
+        description: "您已登出，正在重新登录...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+    }
+  }, [isAuthenticated, toast]);
+
+  const { data: evaluations = [], isLoading: evaluationsLoading } = useQuery<any[]>({
     queryKey: ["/api/evaluations"],
-    
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "未授权",
-          description: "您已退出登录，正在重新登录...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/auth";
-        }, 500);
-        return;
-      }
-    },
+  });
+
+  const { data: taskStats = {} } = useQuery<any>({
+    queryKey: ["/api/tasks/statistics"],
   });
 
   const performanceData = {

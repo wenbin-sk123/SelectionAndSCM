@@ -16,9 +16,28 @@ import { Plus, Minus, Warehouse, Package, AlertTriangle, RotateCcw } from "lucid
 
 export default function Inventory() {
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
 
-  const { data: inventory, isLoading: inventoryLoading } = useQuery({
-    queryKey: ["/api/inventory?taskId=default"],
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      toast({
+        title: "未授权",
+        description: "您已登出，正在重新登录...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+    }
+  }, [isAuthenticated, toast]);
+
+  const { data: inventoryItems = [], isLoading: inventoryLoading } = useQuery<any[]>({
+    queryKey: ["/api/inventory"],
+  });
+
+  const { data: inventoryStats = {} } = useQuery<any>({
+    queryKey: ["/api/inventory/statistics"],
   });
 
   const inventoryTrendData = {
@@ -63,30 +82,7 @@ export default function Inventory() {
     },
   ];
 
-  const mockInventoryItems = [
-    {
-      id: '1',
-      sku: 'PHC-001',
-      name: 'iPhone 15 Pro Max 手机壳',
-      category: '电子产品',
-      currentStock: 85,
-      safetyStock: 50,
-      unitPrice: 85,
-      status: 'normal',
-    },
-    {
-      id: '2',
-      sku: 'BTE-002',
-      name: 'AirPods Pro 蓝牙耳机',
-      category: '电子产品',
-      currentStock: 15,
-      safetyStock: 30,
-      unitPrice: 1200,
-      status: 'shortage',
-    },
-  ];
 
-  const inventoryItems = inventory || mockInventoryItems;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -153,9 +149,11 @@ export default function Inventory() {
                   <h3 className="text-sm font-medium text-neutral-600">库存总值</h3>
                   <Warehouse className="h-5 w-5 text-primary" />
                 </div>
-                <p className="text-2xl font-bold text-neutral-800 font-mono" data-testid="text-inventory-value">¥45,600</p>
-                <p className="text-xs text-destructive mt-1">
-                  <span className="mr-1">↓</span>-2.1%
+                <p className="text-2xl font-bold text-neutral-800 font-mono" data-testid="text-inventory-value">
+                  ¥{(inventoryStats.totalValue || 0).toLocaleString()}
+                </p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  库存总额
                 </p>
               </CardContent>
             </Card>
@@ -166,9 +164,11 @@ export default function Inventory() {
                   <h3 className="text-sm font-medium text-neutral-600">商品种类</h3>
                   <Package className="h-5 w-5 text-info" />
                 </div>
-                <p className="text-2xl font-bold text-neutral-800" data-testid="text-product-types">28</p>
-                <p className="text-xs text-success mt-1">
-                  <span className="mr-1">↑</span>+3种
+                <p className="text-2xl font-bold text-neutral-800" data-testid="text-product-types">
+                  {inventoryStats.totalProducts || inventoryItems.length}
+                </p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  商品数量
                 </p>
               </CardContent>
             </Card>
@@ -179,7 +179,9 @@ export default function Inventory() {
                   <h3 className="text-sm font-medium text-neutral-600">预警商品</h3>
                   <AlertTriangle className="h-5 w-5 text-warning" />
                 </div>
-                <p className="text-2xl font-bold text-neutral-800" data-testid="text-alert-items">5</p>
+                <p className="text-2xl font-bold text-neutral-800" data-testid="text-alert-items">
+                  {inventoryStats.lowStockCount || 0}
+                </p>
                 <p className="text-xs text-warning mt-1">需要补货</p>
               </CardContent>
             </Card>
@@ -190,7 +192,9 @@ export default function Inventory() {
                   <h3 className="text-sm font-medium text-neutral-600">周转率</h3>
                   <RotateCcw className="h-5 w-5 text-success" />
                 </div>
-                <p className="text-2xl font-bold text-neutral-800" data-testid="text-turnover-rate">4.2</p>
+                <p className="text-2xl font-bold text-neutral-800" data-testid="text-turnover-rate">
+                  {(inventoryStats.turnoverRate || 0).toFixed(1)}
+                </p>
                 <p className="text-xs text-success mt-1">次/月</p>
               </CardContent>
             </Card>

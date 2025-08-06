@@ -1,8 +1,7 @@
-import { useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import LineChart from "@/components/charts/line-chart";
@@ -13,57 +12,144 @@ import { DollarSign, TrendingUp, PieChart as PieChartIcon, Download } from "luci
 
 export default function Finance() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [selectedPeriod, setSelectedPeriod] = useState("month");
 
-  const { data: financialRecords, isLoading: recordsLoading } = useQuery({
-    queryKey: ["/api/financial?taskId=default"],
+  // 获取财务记录
+  const { data: financialRecords = [], isLoading: recordsLoading } = useQuery<any[]>({
+    queryKey: ["/api/financial"],
   });
 
-  const revenueData = {
-    labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
-    datasets: [
-      {
-        label: '收入',
-        data: [12000, 15000, 18000, 22000, 28000, 32000],
-        borderColor: 'hsl(var(--success))',
-        backgroundColor: 'hsl(var(--success) / 0.1)',
-      },
-      {
-        label: '成本',
-        data: [8000, 9500, 11000, 13000, 16000, 18000],
-        borderColor: 'hsl(var(--destructive))',
-        backgroundColor: 'hsl(var(--destructive) / 0.1)',
-      },
-    ],
-  };
+  // 获取订单统计用于计算收入
+  const { data: orderStats = {} } = useQuery<any>({
+    queryKey: ["/api/orders/statistics"],
+  });
 
-  const profitData = {
-    labels: ['采购成本', '运营成本', '人员成本', '其他费用'],
-    datasets: [
-      {
-        data: [66, 19, 12, 3],
-        backgroundColor: [
-          'hsl(var(--primary))',
-          'hsl(var(--success))',
-          'hsl(var(--warning))',
-          'hsl(var(--info))',
+  // 获取库存成本数据
+  const { data: inventoryData = [] } = useQuery<any[]>({
+    queryKey: ["/api/inventory"],
+  });
+
+  // 处理财务数据
+  const processedFinancialData = useMemo(() => {
+    if (!financialRecords.length) {
+      return {
+        revenueData: null,
+        profitData: null,
+        summary: {
+          totalRevenue: 0,
+          totalCost: 0,
+          totalProfit: 0,
+          profitMargin: 0,
+        },
+        costStructure: [],
+      };
+    }
+
+    // 按月份分组财务记录
+    const monthlyData = financialRecords.reduce((acc: any, record: any) => {
+      const month = new Date(record.createdAt).getMonth();
+      if (!acc[month]) {
+        acc[month] = { revenue: 0, cost: 0 };
+      }
+      if (record.type === 'income') {
+        acc[month].revenue += record.amount;
+      } else {
+        acc[month].cost += record.amount;
+      }
+      return acc;
+    }, {});
+
+    // 准备图表数据
+    const labels = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    const currentMonth = new Date().getMonth();
+    const displayLabels = labels.slice(Math.max(0, currentMonth - 5), currentMonth + 1);
+    
+    const revenueArray = displayLabels.map((_, idx) => {
+      const monthIdx = currentMonth - 5 + idx;
+      return monthlyData[monthIdx]?.revenue || 0;
+    });
+    
+    const costArray = displayLabels.map((_, idx) => {
+      const monthIdx = currentMonth - 5 + idx;
+      return monthlyData[monthIdx]?.cost || 0;
+    });
+
+    // 计算成本结构
+    const costByCategory = financialRecords
+      .filter((r: any) => r.type === 'expense')
+      .reduce((acc: any, record: any) => {
+        const category = record.category || '其他费用';
+        acc[category] = (acc[category] || 0) + record.amount;
+        return acc;
+      }, {});
+
+    const totalCost = Object.values(costByCategory).reduce((sum: any, val: any) => sum + val, 0) as number;
+    
+    const costStructure = Object.entries(costByCategory).map(([name, amount]: [string, any]) => ({
+      name,
+      amount,
+      percentage: totalCost > 0 ? Math.round((amount / totalCost) * 100) : 0,
+      color: name === '采购成本' ? 'primary' : 
+             name === '运营成本' ? 'success' : 
+             name === '人员成本' ? 'warning' : 'info'
+    }));
+
+    // 计算总计
+    const totalRevenue = financialRecords
+      .filter((r: any) => r.type === 'income')
+      .reduce((sum: number, r: any) => sum + r.amount, 0);
+    
+    const totalExpense = financialRecords
+      .filter((r: any) => r.type === 'expense')
+      .reduce((sum: number, r: any) => sum + r.amount, 0);
+
+    const totalProfit = totalRevenue - totalExpense;
+    const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+    return {
+      revenueData: {
+        labels: displayLabels,
+        datasets: [
+          {
+            label: '收入',
+            data: revenueArray,
+            borderColor: 'hsl(var(--success))',
+            backgroundColor: 'hsl(var(--success) / 0.1)',
+          },
+          {
+            label: '成本',
+            data: costArray,
+            borderColor: 'hsl(var(--destructive))',
+            backgroundColor: 'hsl(var(--destructive) / 0.1)',
+          },
         ],
       },
-    ],
-  };
+      profitData: {
+        labels: costStructure.map(c => c.name),
+        datasets: [
+          {
+            data: costStructure.map(c => c.percentage),
+            backgroundColor: costStructure.map(c => 
+              c.color === 'primary' ? 'hsl(var(--primary))' :
+              c.color === 'success' ? 'hsl(var(--success))' :
+              c.color === 'warning' ? 'hsl(var(--warning))' :
+              'hsl(var(--info))'
+            ),
+          },
+        ],
+      },
+      summary: {
+        totalRevenue,
+        totalCost: totalExpense,
+        totalProfit,
+        profitMargin,
+      },
+      costStructure,
+    };
+  }, [financialRecords]);
 
-  const financialData = [
-    { item: '营业收入', current: 156800, previous: 132400, change: 18.4, yearly: 1245600 },
-    { item: '营业成本', current: 98650, previous: 87800, change: 12.4, yearly: 786200 },
-    { item: '毛利润', current: 58150, previous: 44600, change: 30.4, yearly: 459400 },
-    { item: '毛利率', current: 37.1, previous: 33.7, change: 3.4, yearly: 36.9, isPercentage: true },
-  ];
-
-  const costStructure = [
-    { name: '采购成本', amount: 65200, percentage: 66, color: 'primary' },
-    { name: '运营成本', amount: 18500, percentage: 19, color: 'success' },
-    { name: '人员成本', amount: 12000, percentage: 12, color: 'warning' },
-    { name: '其他费用', amount: 2950, percentage: 3, color: 'info' },
-  ];
+  const { revenueData, profitData, summary, costStructure } = processedFinancialData;
 
   if (recordsLoading) {
     return (
@@ -96,10 +182,12 @@ export default function Finance() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-neutral-600 text-sm">总收入</p>
-                    <p className="text-2xl font-bold text-neutral-800 font-mono" data-testid="text-total-revenue">¥156,800</p>
+                    <p className="text-2xl font-bold text-neutral-800 font-mono" data-testid="text-total-revenue">
+                      ¥{summary.totalRevenue.toLocaleString()}
+                    </p>
                     <p className="text-xs text-success mt-1">
                       <TrendingUp className="h-3 w-3 inline mr-1" />
-                      +18.5%
+                      本月
                     </p>
                   </div>
                   <div className="bg-success/10 p-3 rounded-full">
@@ -114,10 +202,12 @@ export default function Finance() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-neutral-600 text-sm">总成本</p>
-                    <p className="text-2xl font-bold text-neutral-800 font-mono" data-testid="text-total-costs">¥98,650</p>
+                    <p className="text-2xl font-bold text-neutral-800 font-mono" data-testid="text-total-costs">
+                      ¥{summary.totalCost.toLocaleString()}
+                    </p>
                     <p className="text-xs text-destructive mt-1">
                       <TrendingUp className="h-3 w-3 inline mr-1" />
-                      +12.3%
+                      本月
                     </p>
                   </div>
                   <div className="bg-destructive/10 p-3 rounded-full">
@@ -132,10 +222,12 @@ export default function Finance() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-neutral-600 text-sm">净利润</p>
-                    <p className="text-2xl font-bold text-neutral-800 font-mono" data-testid="text-net-profit">¥58,150</p>
+                    <p className="text-2xl font-bold text-neutral-800 font-mono" data-testid="text-net-profit">
+                      ¥{summary.totalProfit.toLocaleString()}
+                    </p>
                     <p className="text-xs text-success mt-1">
                       <TrendingUp className="h-3 w-3 inline mr-1" />
-                      +25.7%
+                      本月
                     </p>
                   </div>
                   <div className="bg-primary/10 p-3 rounded-full">
@@ -150,10 +242,12 @@ export default function Finance() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-neutral-600 text-sm">利润率</p>
-                    <p className="text-2xl font-bold text-neutral-800" data-testid="text-profit-margin">37.1%</p>
+                    <p className="text-2xl font-bold text-neutral-800" data-testid="text-profit-margin">
+                      {summary.profitMargin.toFixed(1)}%
+                    </p>
                     <p className="text-xs text-success mt-1">
                       <TrendingUp className="h-3 w-3 inline mr-1" />
-                      +4.2%
+                      本月
                     </p>
                   </div>
                   <div className="bg-warning/10 p-3 rounded-full">
@@ -172,7 +266,13 @@ export default function Finance() {
               </CardHeader>
               <CardContent>
                 <div className="h-64">
-                  <LineChart data={revenueData} />
+                  {revenueData ? (
+                    <LineChart data={revenueData} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-neutral-500">
+                      暂无数据
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -183,7 +283,13 @@ export default function Finance() {
               </CardHeader>
               <CardContent>
                 <div className="h-64">
-                  <PieChart data={profitData} />
+                  {profitData ? (
+                    <PieChart data={profitData} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-neutral-500">
+                      暂无数据
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -269,25 +375,66 @@ export default function Finance() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {financialData.map((item, index) => (
-                      <tr key={index} data-testid={`row-financial-${item.item}`}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">{item.item}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
-                          {item.isPercentage ? `${item.current}%` : `¥${item.current.toLocaleString()}`}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-600">
-                          {item.isPercentage ? `${item.previous}%` : `¥${item.previous.toLocaleString()}`}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                          <span className={item.change > 0 ? 'text-success' : 'text-destructive'}>
-                            {item.change > 0 ? '+' : ''}{item.change}%
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
-                          {item.isPercentage ? `${item.yearly}%` : `¥${item.yearly.toLocaleString()}`}
-                        </td>
-                      </tr>
-                    ))}
+                    <tr data-testid="row-financial-revenue">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">营业收入</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
+                        ¥{summary.totalRevenue.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-600">
+                        ¥0
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <span className="text-success">+0%</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
+                        ¥{summary.totalRevenue.toLocaleString()}
+                      </td>
+                    </tr>
+                    <tr data-testid="row-financial-cost">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">营业成本</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
+                        ¥{summary.totalCost.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-600">
+                        ¥0
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <span className="text-success">+0%</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
+                        ¥{summary.totalCost.toLocaleString()}
+                      </td>
+                    </tr>
+                    <tr data-testid="row-financial-profit">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">毛利润</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
+                        ¥{summary.totalProfit.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-600">
+                        ¥0
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <span className="text-success">+0%</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
+                        ¥{summary.totalProfit.toLocaleString()}
+                      </td>
+                    </tr>
+                    <tr data-testid="row-financial-margin">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">毛利率</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
+                        {summary.profitMargin.toFixed(1)}%
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-600">
+                        0%
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <span className="text-success">+0%</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-mono text-neutral-900">
+                        {summary.profitMargin.toFixed(1)}%
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>

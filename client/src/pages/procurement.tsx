@@ -1,8 +1,8 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import SupplierCard from "@/components/supplier-card";
@@ -10,93 +10,67 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Plus, MessageCircle } from "lucide-react";
+
+const negotiationSchema = z.object({
+  supplierId: z.string().min(1, "请选择供应商"),
+  productId: z.string().min(1, "请选择产品"),
+  requestedPrice: z.number().positive("价格必须大于0"),
+  quantity: z.number().int().positive("数量必须大于0"),
+});
 
 export default function Procurement() {
   const { toast } = useToast();
+  const [negotiationDialogOpen, setNegotiationDialogOpen] = useState(false);
 
-  const { data: suppliers, isLoading: suppliersLoading } = useQuery({
+  const { data: suppliers = [], isLoading: suppliersLoading, error: suppliersError } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
-    
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "未授权",
-          description: "您已退出登录，正在重新登录...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/auth";
-        }, 500);
-        return;
-      }
-    },
   });
 
-  const { data: orders, isLoading: ordersLoading } = useQuery({
+  const { data: orders = [], isLoading: ordersLoading, error: ordersError } = useQuery<any[]>({
     queryKey: ["/api/orders"],
-    
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "未授权",
-          description: "您已退出登录，正在重新登录...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/auth";
-        }, 500);
-        return;
-      }
+  });
+
+  const { data: products = [] } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+  });
+
+  const negotiationForm = useForm({
+    resolver: zodResolver(negotiationSchema),
+    defaultValues: {
+      supplierId: "",
+      productId: "",
+      requestedPrice: 0,
+      quantity: 1,
     },
   });
 
-  const mockSuppliers = [
-    {
-      id: '1',
-      name: 'ABC电子科技',
-      description: '主营：手机配件、电子产品',
-      rating: 5.0,
-      qualityLevel: 'high',
-      cooperationYears: 2,
-      isActive: true,
+  const negotiationMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof negotiationSchema>) => {
+      const response = await apiRequest("POST", "/api/negotiation", data);
+      return response.json();
     },
-    {
-      id: '2',
-      name: '智能家居有限公司',
-      description: '主营：智能设备、家居用品',
-      rating: 4.2,
-      qualityLevel: 'medium',
-      cooperationYears: 0.25,
-      isActive: true,
+    onSuccess: (data) => {
+      toast({
+        title: "谈判完成",
+        description: data.dealClosed ? `成交价格：¥${data.finalPrice}` : "谈判未成功，请调整策略",
+      });
+      setNegotiationDialogOpen(false);
+      negotiationForm.reset();
     },
-  ];
-
-  const mockOrders = [
-    {
-      id: '1',
-      orderNumber: 'P2024001',
-      supplierId: '1',
-      supplierName: 'ABC电子科技',
-      description: 'iPhone 15 Pro Max 手机壳 × 100件',
-      totalAmount: '8500',
-      status: 'completed',
-      createdAt: '2024-12-15',
+    onError: (error: Error) => {
+      toast({
+        title: "谈判失败",
+        description: error.message,
+        variant: "destructive",
+      });
     },
-    {
-      id: '2',
-      orderNumber: 'P2024002',
-      supplierId: '2',
-      supplierName: '智能家居有限公司',
-      description: '智能音箱 × 50件',
-      totalAmount: '12000',
-      status: 'pending',
-      createdAt: '2024-12-16',
-    },
-  ];
-
-  const supplierData = suppliers || mockSuppliers;
-  const orderData = orders || mockOrders;
+  });
 
   if (suppliersLoading || ordersLoading) {
     return (
@@ -210,13 +184,17 @@ export default function Procurement() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {supplierData.map((supplier: any) => (
-                    <SupplierCard
-                      key={supplier.id}
-                      supplier={supplier}
-                      testId={`supplier-${supplier.id}`}
-                    />
-                  ))}
+                  {suppliers.length > 0 ? (
+                    suppliers.map((supplier: any) => (
+                      <SupplierCard
+                        key={supplier.id}
+                        supplier={supplier}
+                        testId={`supplier-${supplier.id}`}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-center text-neutral-500 py-4">暂无供应商数据</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -227,26 +205,30 @@ export default function Procurement() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {orderData.map((order: any) => (
-                    <div 
-                      key={order.id}
-                      className="p-4 border rounded-lg"
-                      data-testid={`order-${order.id}`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium text-neutral-800">采购订单 #{order.orderNumber}</h4>
-                        <Badge className={order.status === 'completed' ? 'bg-success text-success-foreground' : 'bg-info text-info-foreground'}>
-                          {order.status === 'completed' ? '已完成' : '进行中'}
-                        </Badge>
+                  {orders.length > 0 ? (
+                    orders.map((order: any) => (
+                      <div 
+                        key={order.id}
+                        className="p-4 border rounded-lg"
+                        data-testid={`order-${order.id}`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-neutral-800">采购订单 #{order.orderNumber || order.id}</h4>
+                          <Badge className={order.status === 'completed' ? 'bg-success text-success-foreground' : 'bg-info text-info-foreground'}>
+                            {order.status === 'completed' ? '已完成' : '进行中'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-neutral-600 mb-2">供应商：{order.supplierName || '未知'}</p>
+                        <p className="text-sm text-neutral-600 mb-2">商品：{order.description || order.productId}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-neutral-800">¥{(order.totalAmount || order.amount || 0).toLocaleString()}</span>
+                          <span className="text-xs text-neutral-500">{new Date(order.createdAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                      <p className="text-sm text-neutral-600 mb-2">供应商：{order.supplierName}</p>
-                      <p className="text-sm text-neutral-600 mb-2">商品：{order.description}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-neutral-800">¥{parseFloat(order.totalAmount).toLocaleString()}</span>
-                        <span className="text-xs text-neutral-500">{order.createdAt}</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-center text-neutral-500 py-4">暂无订单数据</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -327,6 +309,119 @@ export default function Procurement() {
           </Card>
         </div>
       </main>
+
+      {/* Negotiation Dialog */}
+      <Dialog open={negotiationDialogOpen} onOpenChange={setNegotiationDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>采购谈判</DialogTitle>
+            <DialogDescription>
+              与供应商进行价格谈判
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...negotiationForm}>
+            <form onSubmit={negotiationForm.handleSubmit((data) => negotiationMutation.mutate(data))} className="space-y-4">
+              <FormField
+                control={negotiationForm.control}
+                name="supplierId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>选择供应商</FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        className="w-full px-3 py-2 border rounded-md"
+                        data-testid="select-supplier"
+                      >
+                        <option value="">请选择</option>
+                        {suppliers.map((supplier: any) => (
+                          <option key={supplier.id} value={supplier.id}>
+                            {supplier.name}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={negotiationForm.control}
+                name="productId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>选择产品</FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        className="w-full px-3 py-2 border rounded-md"
+                        data-testid="select-product"
+                      >
+                        <option value="">请选择</option>
+                        {products.map((product: any) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={negotiationForm.control}
+                name="requestedPrice"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>期望价格 (¥)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        step="0.01"
+                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                        data-testid="input-requested-price"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={negotiationForm.control}
+                name="quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>数量</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        data-testid="input-quantity"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setNegotiationDialogOpen(false)}>
+                  取消
+                </Button>
+                <Button type="submit" disabled={negotiationMutation.isPending}>
+                  {negotiationMutation.isPending ? "谈判中..." : "开始谈判"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
