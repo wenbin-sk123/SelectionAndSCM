@@ -40,14 +40,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 const createTaskSchema = z.object({
-  title: z.string().min(1, "任务标题不能为空"),
+  name: z.string().min(1, "任务名称不能为空"),
   description: z.string().min(1, "任务描述不能为空"),
-  category: z.string().min(1, "请选择任务类别"),
-  difficulty: z.string().min(1, "请选择难度等级"),
-  duration: z.number().min(1, "持续天数必须大于0").max(30, "持续天数不能超过30天"),
-  maxScore: z.number().min(1, "最高分数必须大于0").max(100, "最高分数不能超过100"),
-  objectives: z.string().min(1, "任务目标不能为空"),
-  requirements: z.string().min(1, "任务要求不能为空"),
+  initialBudget: z.string().min(1, "初始预算不能为空"),
+  durationDays: z.number().min(1, "持续天数必须大于0").max(90, "持续天数不能超过90天"),
+  marketScenario: z.object({
+    category: z.string().min(1, "请选择市场场景"),
+    difficulty: z.string().min(1, "请选择难度等级"),
+  }).optional(),
+  targetKpis: z.object({
+    revenueTarget: z.number().optional(),
+    profitMargin: z.number().optional(),
+    inventoryTurnover: z.number().optional(),
+  }).optional(),
   status: z.string().default("draft"),
 });
 
@@ -72,22 +77,8 @@ export default function Tasks() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: tasks, isLoading: tasksLoading } = useQuery({
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery<any[]>({
     queryKey: ["/api/tasks"],
-    
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "未授权",
-          description: "您已退出登录，正在重新登录...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/auth";
-        }, 500);
-        return;
-      }
-    },
   });
 
   const canCreateTask = user?.role === 'teacher' || user?.role === 'admin';
@@ -95,14 +86,19 @@ export default function Tasks() {
   const form = useForm<CreateTaskForm>({
     resolver: zodResolver(createTaskSchema),
     defaultValues: {
-      title: "",
+      name: "",
       description: "",
-      category: "",
-      difficulty: "",
-      duration: 7,
-      maxScore: 100,
-      objectives: "",
-      requirements: "",
+      initialBudget: "10000",
+      durationDays: 7,
+      marketScenario: {
+        category: "",
+        difficulty: "",
+      },
+      targetKpis: {
+        revenueTarget: 0,
+        profitMargin: 0,
+        inventoryTurnover: 0,
+      },
       status: "draft",
     },
   });
@@ -388,12 +384,12 @@ export default function Tasks() {
             <form onSubmit={form.handleSubmit(data => createTaskMutation.mutate(data))} className="space-y-4">
               <FormField
                 control={form.control}
-                name="title"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>任务标题</FormLabel>
+                    <FormLabel>任务名称</FormLabel>
                     <FormControl>
-                      <Input placeholder="输入任务标题" {...field} />
+                      <Input placeholder="输入任务名称" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -418,25 +414,43 @@ export default function Tasks() {
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="initialBudget"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>初始预算（元）</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="text"
+                        placeholder="输入初始预算金额" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="category"
+                  name="marketScenario.category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>任务类别</FormLabel>
+                      <FormLabel>市场场景</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="选择类别" />
+                            <SelectValue placeholder="选择场景" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="procurement">采购管理</SelectItem>
-                          <SelectItem value="inventory">库存管理</SelectItem>
-                          <SelectItem value="pricing">定价策略</SelectItem>
-                          <SelectItem value="marketing">市场营销</SelectItem>
-                          <SelectItem value="comprehensive">综合实训</SelectItem>
+                          <SelectItem value="服装">服装</SelectItem>
+                          <SelectItem value="电子产品">电子产品</SelectItem>
+                          <SelectItem value="食品">食品</SelectItem>
+                          <SelectItem value="家居用品">家居用品</SelectItem>
+                          <SelectItem value="运动用品">运动用品</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -446,7 +460,7 @@ export default function Tasks() {
 
                 <FormField
                   control={form.control}
-                  name="difficulty"
+                  name="marketScenario.difficulty"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>难度等级</FormLabel>
@@ -468,81 +482,83 @@ export default function Tasks() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="duration"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>持续天数</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="7" 
-                          {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="durationDays"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>持续天数</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="7" 
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="maxScore"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>最高分数</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          placeholder="100" 
-                          {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="space-y-4">
+                <div className="text-sm font-medium">目标KPI（选填）</div>
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="targetKpis.revenueTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>营收目标</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="targetKpis.profitMargin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>利润率(%)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="targetKpis.inventoryTurnover"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>库存周转率</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="0" 
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
-
-              <FormField
-                control={form.control}
-                name="objectives"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>任务目标</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="描述任务目标（可用换行分点列出）" 
-                        rows={3}
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="requirements"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>任务要求</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="描述任务要求和评分标准" 
-                        rows={3}
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}
