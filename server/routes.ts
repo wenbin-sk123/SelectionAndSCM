@@ -275,6 +275,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task execution endpoints using business logic services
+  app.post("/api/tasks/:taskId/start", isAuthenticated, async (req: any, res) => {
+    try {
+      const { TaskService } = require('./services/taskService');
+      const userId = req.user.id;
+      const { taskId } = req.params;
+      const progress = await TaskService.startTask(userId, taskId);
+      res.json(progress);
+    } catch (error: any) {
+      console.error("Error starting task:", error);
+      res.status(500).json({ message: error.message || "启动任务失败" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/advance", isAuthenticated, async (req: any, res) => {
+    try {
+      const { TaskService } = require('./services/taskService');
+      const userId = req.user.id;
+      const { taskId } = req.params;
+      const progress = await TaskService.advanceDay(userId, taskId);
+      res.json(progress);
+    } catch (error: any) {
+      console.error("Error advancing task:", error);
+      res.status(500).json({ message: error.message || "推进任务失败" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const { TaskService } = require('./services/taskService');
+      const userId = req.user.id;
+      const { taskId } = req.params;
+      const evaluation = await TaskService.completeTask(userId, taskId);
+      res.json(evaluation);
+    } catch (error: any) {
+      console.error("Error completing task:", error);
+      res.status(500).json({ message: error.message || "完成任务失败" });
+    }
+  });
+
+  app.get("/api/tasks/:taskId/statistics", isAuthenticated, async (req: any, res) => {
+    try {
+      const { TaskService } = require('./services/taskService');
+      const userId = req.user.id;
+      const { taskId } = req.params;
+      const stats = await TaskService.getTaskStatistics(userId, taskId);
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching task statistics:", error);
+      res.status(500).json({ message: error.message || "获取任务统计失败" });
+    }
+  });
+
   // Student Progress Routes
   app.get("/api/progress", isAuthenticated, async (req: any, res) => {
     try {
@@ -446,6 +499,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Business Logic Inventory Endpoints
+  app.post("/api/inventory/incoming", isAuthenticated, async (req: any, res) => {
+    try {
+      const { InventoryService } = require('./services/inventoryService');
+      const userId = req.user.id;
+      const { taskId, productId, quantity, unitCost } = req.body;
+      const record = await InventoryService.processIncoming(userId, taskId, productId, quantity, unitCost);
+      res.json(record);
+    } catch (error: any) {
+      console.error("Error processing incoming inventory:", error);
+      res.status(500).json({ message: error.message || "入库处理失败" });
+    }
+  });
+
+  app.post("/api/inventory/outgoing", isAuthenticated, async (req: any, res) => {
+    try {
+      const { InventoryService } = require('./services/inventoryService');
+      const userId = req.user.id;
+      const { taskId, productId, quantity, unitPrice } = req.body;
+      const record = await InventoryService.processOutgoing(userId, taskId, productId, quantity, unitPrice);
+      res.json(record);
+    } catch (error: any) {
+      console.error("Error processing outgoing inventory:", error);
+      res.status(500).json({ message: error.message || "出库处理失败" });
+    }
+  });
+
+  app.get("/api/inventory/low-stock", isAuthenticated, async (req: any, res) => {
+    try {
+      const { InventoryService } = require('./services/inventoryService');
+      const userId = req.user.id;
+      const taskId = req.query.taskId as string;
+      const alerts = await InventoryService.checkLowStock(userId, taskId);
+      res.json(alerts);
+    } catch (error: any) {
+      console.error("Error checking low stock:", error);
+      res.status(500).json({ message: error.message || "库存检查失败" });
+    }
+  });
+
+  app.get("/api/inventory/turnover", isAuthenticated, async (req: any, res) => {
+    try {
+      const { InventoryService } = require('./services/inventoryService');
+      const userId = req.user.id;
+      const taskId = req.query.taskId as string;
+      const analysis = await InventoryService.analyzeInventoryTurnover(userId, taskId);
+      res.json(analysis);
+    } catch (error: any) {
+      console.error("Error analyzing inventory turnover:", error);
+      res.status(500).json({ message: error.message || "库存周转分析失败" });
+    }
+  });
+
+  app.get("/api/inventory/optimization", isAuthenticated, async (req: any, res) => {
+    try {
+      const { InventoryService } = require('./services/inventoryService');
+      const userId = req.user.id;
+      const taskId = req.query.taskId as string;
+      const suggestions = await InventoryService.generateOptimizationSuggestions(userId, taskId);
+      res.json(suggestions);
+    } catch (error: any) {
+      console.error("Error generating optimization suggestions:", error);
+      res.status(500).json({ message: error.message || "优化建议生成失败" });
+    }
+  });
+
   // Order Routes
   app.get("/api/orders", isAuthenticated, async (req: any, res) => {
     try {
@@ -503,72 +622,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Market Routes
+  // Business Logic Order Endpoints
+  app.post("/api/orders/purchase", isAuthenticated, async (req: any, res) => {
+    try {
+      const { OrderService } = require('./services/orderService');
+      const userId = req.user.id;
+      const { taskId, supplierId, items } = req.body;
+      const order = await OrderService.createPurchaseOrder(userId, taskId, supplierId, items);
+      res.json(order);
+    } catch (error: any) {
+      console.error("Error creating purchase order:", error);
+      res.status(500).json({ message: error.message || "创建采购订单失败" });
+    }
+  });
+
+  app.post("/api/orders/sale", isAuthenticated, async (req: any, res) => {
+    try {
+      const { OrderService } = require('./services/orderService');
+      const userId = req.user.id;
+      const { taskId, customerName, items } = req.body;
+      const order = await OrderService.createSalesOrder(userId, taskId, customerName, items);
+      res.json(order);
+    } catch (error: any) {
+      console.error("Error creating sales order:", error);
+      res.status(500).json({ message: error.message || "创建销售订单失败" });
+    }
+  });
+
+  app.post("/api/orders/:orderId/cancel", isAuthenticated, async (req: any, res) => {
+    try {
+      const { OrderService } = require('./services/orderService');
+      const userId = req.user.id;
+      const { orderId } = req.params;
+      const { taskId } = req.body;
+      const order = await OrderService.cancelOrder(orderId, userId, taskId);
+      res.json(order);
+    } catch (error: any) {
+      console.error("Error cancelling order:", error);
+      res.status(500).json({ message: error.message || "取消订单失败" });
+    }
+  });
+
+  app.get("/api/orders/statistics", isAuthenticated, async (req: any, res) => {
+    try {
+      const { OrderService } = require('./services/orderService');
+      const userId = req.user.id;
+      const taskId = req.query.taskId as string;
+      const stats = await OrderService.getOrderStatistics(userId, taskId);
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching order statistics:", error);
+      res.status(500).json({ message: error.message || "获取订单统计失败" });
+    }
+  });
+
+  app.post("/api/negotiation", isAuthenticated, async (req: any, res) => {
+    try {
+      const { OrderService } = require('./services/orderService');
+      const { supplierId, productId, requestedPrice, quantity } = req.body;
+      const result = await OrderService.negotiatePrice(supplierId, productId, requestedPrice, quantity);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error negotiating price:", error);
+      res.status(500).json({ message: error.message || "价格谈判失败" });
+    }
+  });
+
+  // Market Routes with Dynamic Data
   app.get("/api/market", isAuthenticated, async (req, res) => {
     try {
-      // Return sample market data
-      const marketData = {
-        trends: [
-          {
-            id: '1',
-            product: '智能手机',
-            trend: 'rising',
-            changePercent: 15.2,
-            volume: 258000,
-            avgPrice: 3500
-          },
-          {
-            id: '2',
-            product: '蓝牙耳机',
-            trend: 'stable',
-            changePercent: 2.1,
-            volume: 185000,
-            avgPrice: 580
-          },
-          {
-            id: '3',
-            product: '智能手表',
-            trend: 'falling',
-            changePercent: -5.8,
-            volume: 92000,
-            avgPrice: 1200
-          }
-        ],
-        competitors: [
-          {
-            id: '1',
-            name: '竞争对手A',
-            marketShare: 25,
-            avgPrice: 3200,
-            strategy: '低价策略'
-          },
-          {
-            id: '2',
-            name: '竞争对手B',
-            marketShare: 20,
-            avgPrice: 3800,
-            strategy: '品质策略'
-          }
-        ],
-        recommendations: [
-          {
-            id: '1',
-            product: '无线充电器',
-            reason: '市场需求增长迅速',
-            expectedProfit: 35
-          },
-          {
-            id: '2',
-            product: '手机支架',
-            reason: '高利润率产品',
-            expectedProfit: 45
-          }
-        ]
-      };
-      res.json(marketData);
-    } catch (error) {
+      const { MarketService } = require('./services/marketService');
+      
+      // Generate dynamic market data for multiple categories
+      const categories = ['电子产品', '智能家居', '配件'];
+      const marketAnalysis = await MarketService.analyzeMarketTrends(categories);
+      
+      res.json(marketAnalysis);
+    } catch (error: any) {
       console.error("Error fetching market data:", error);
-      res.status(500).json({ message: "Failed to fetch market data" });
+      res.status(500).json({ message: error.message || "获取市场数据失败" });
+    }
+  });
+
+  app.get("/api/market/:category", isAuthenticated, async (req, res) => {
+    try {
+      const { MarketService } = require('./services/marketService');
+      const { category } = req.params;
+      const marketData = await MarketService.generateMarketData(category);
+      res.json(marketData);
+    } catch (error: any) {
+      console.error("Error generating market data:", error);
+      res.status(500).json({ message: error.message || "生成市场数据失败" });
+    }
+  });
+
+  app.get("/api/market/competitors/:taskId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { MarketService } = require('./services/marketService');
+      const userId = req.user.id;
+      const { taskId } = req.params;
+      const competitors = await MarketService.simulateCompetitors(userId, taskId);
+      res.json(competitors);
+    } catch (error: any) {
+      console.error("Error simulating competitors:", error);
+      res.status(500).json({ message: error.message || "模拟竞争对手失败" });
+    }
+  });
+
+  app.post("/api/market/optimal-price", isAuthenticated, async (req, res) => {
+    try {
+      const { MarketService } = require('./services/marketService');
+      const { productId, baseCost, targetMargin } = req.body;
+      const pricing = await MarketService.calculateOptimalPrice(productId, baseCost, targetMargin);
+      res.json(pricing);
+    } catch (error: any) {
+      console.error("Error calculating optimal price:", error);
+      res.status(500).json({ message: error.message || "计算最优价格失败" });
     }
   });
 

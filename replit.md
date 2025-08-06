@@ -6,6 +6,16 @@ This is a comprehensive e-commerce procurement and supply chain management train
 
 The system provides a complete workflow simulation covering market research, supplier management, procurement negotiations, inventory management, and financial analysis. Students can practice real-world e-commerce scenarios in a safe, controlled environment while teachers can create and manage training tasks with comprehensive evaluation systems.
 
+## Recent Changes (January 2025)
+
+### Core Business Logic Implementation
+- **TaskService**: Complete task execution lifecycle management with KPI tracking and evaluation
+- **InventoryService**: Real-time inventory operations with optimization algorithms
+- **OrderService**: Purchase/sales order processing with AI negotiation simulation
+- **MarketService**: Dynamic market data generation and competitor behavior simulation
+- Replaced all static sample data with actual business logic operations
+- Added 20+ new API endpoints for real business operations
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
