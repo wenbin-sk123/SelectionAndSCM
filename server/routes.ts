@@ -535,7 +535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Business Logic Order Endpoints
   app.post("/api/orders/purchase", isAuthenticated, async (req: any, res) => {
     try {
-      const { OrderService } = require('./services/orderService');
+      const { OrderService } = await import('./services/orderService');
       const userId = req.user.id;
       const { taskId, supplierId, items } = req.body;
       const order = await OrderService.createPurchaseOrder(userId, taskId, supplierId, items);
@@ -548,7 +548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders/sale", isAuthenticated, async (req: any, res) => {
     try {
-      const { OrderService } = require('./services/orderService');
+      const { OrderService } = await import('./services/orderService');
       const userId = req.user.id;
       const { taskId, customerName, items } = req.body;
       const order = await OrderService.createSalesOrder(userId, taskId, customerName, items);
@@ -561,7 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders/:orderId/cancel", isAuthenticated, async (req: any, res) => {
     try {
-      const { OrderService } = require('./services/orderService');
+      const { OrderService } = await import('./services/orderService');
       const userId = req.user.id;
       const { orderId } = req.params;
       const { taskId } = req.body;
@@ -575,7 +575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/orders/statistics", isAuthenticated, async (req: any, res) => {
     try {
-      const { OrderService } = require('./services/orderService');
+      const { OrderService } = await import('./services/orderService');
       const userId = req.user.id;
       const taskId = req.query.taskId as string;
       const stats = await OrderService.getOrderStatistics(userId, taskId);
@@ -588,7 +588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/negotiation", isAuthenticated, async (req: any, res) => {
     try {
-      const { OrderService } = require('./services/orderService');
+      const { OrderService } = await import('./services/orderService');
       const { supplierId, productId, requestedPrice, quantity } = req.body;
       const result = await OrderService.negotiatePrice(supplierId, productId, requestedPrice, quantity);
       res.json(result);
@@ -602,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/market/:category", isAuthenticated, async (req, res) => {
     try {
-      const { MarketService } = require('./services/marketService');
+      const { MarketService } = await import('./services/marketService');
       const { category } = req.params;
       const marketData = await MarketService.generateMarketData(category);
       res.json(marketData);
@@ -689,6 +689,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating evaluation:", error);
       res.status(500).json({ message: "Failed to create evaluation" });
+    }
+  });
+
+  // Export Routes
+  app.get("/api/export/financial", isAuthenticated, async (req: any, res) => {
+    try {
+      const { ExportService } = await import('./services/exportService');
+      const userId = req.user.id;
+      const taskId = req.query.taskId as string || 'default';
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const buffer = await ExportService.exportFinancialReport(userId, taskId, startDate, endDate);
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="financial-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting financial report:", error);
+      res.status(500).json({ message: "Failed to export financial report" });
+    }
+  });
+
+  app.get("/api/export/evaluation", isAuthenticated, async (req: any, res) => {
+    try {
+      const { ExportService } = await import('./services/exportService');
+      const userId = req.user.id;
+      const taskId = req.query.taskId as string;
+      
+      const buffer = await ExportService.exportEvaluationReport(userId, taskId);
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="evaluation-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting evaluation report:", error);
+      res.status(500).json({ message: "Failed to export evaluation report" });
+    }
+  });
+
+  app.get("/api/export/inventory", isAuthenticated, async (req: any, res) => {
+    try {
+      const { ExportService } = await import('./services/exportService');
+      const userId = req.user.id;
+      const taskId = req.query.taskId as string || 'default';
+      
+      const buffer = await ExportService.exportInventoryReport(userId, taskId);
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="inventory-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting inventory report:", error);
+      res.status(500).json({ message: "Failed to export inventory report" });
+    }
+  });
+
+  app.get("/api/export/orders", isAuthenticated, async (req: any, res) => {
+    try {
+      const { ExportService } = await import('./services/exportService');
+      const userId = req.user.id;
+      const taskId = req.query.taskId as string || 'default';
+      const orderType = req.query.orderType as 'purchase' | 'sale' | undefined;
+      
+      const buffer = await ExportService.exportOrdersReport(userId, taskId, orderType);
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="orders-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting orders report:", error);
+      res.status(500).json({ message: "Failed to export orders report" });
+    }
+  });
+
+  app.get("/api/export/comprehensive", isAuthenticated, async (req: any, res) => {
+    try {
+      const { ExportService } = await import('./services/exportService');
+      const userId = req.user.id;
+      const taskId = req.query.taskId as string || 'default';
+      
+      const buffer = await ExportService.exportComprehensiveReport(userId, taskId);
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="comprehensive-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting comprehensive report:", error);
+      res.status(500).json({ message: "Failed to export comprehensive report" });
     }
   });
 

@@ -32,6 +32,76 @@ export default function Reports() {
     }
   }, [isAuthenticated, toast]);
 
+  const handleExportData = async () => {
+    try {
+      const response = await fetch('/api/export/comprehensive?taskId=default', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `comprehensive-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "导出成功",
+        description: "报表已成功导出为Excel文件",
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "导出失败",
+        description: "无法导出报表，请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    try {
+      const response = await fetch('/api/export/evaluation?taskId=default', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('生成失败');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `evaluation-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "生成成功",
+        description: "评估报表已成功生成",
+      });
+    } catch (error) {
+      console.error('Generate report error:', error);
+      toast({
+        title: "生成失败",
+        description: "无法生成报表，请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
   const { data: evaluations = [], isLoading: evaluationsLoading } = useQuery<any[]>({
     queryKey: ["/api/evaluations"],
   });
@@ -199,6 +269,7 @@ export default function Reports() {
                 <Button 
                   className="bg-primary text-white hover:bg-primary/90"
                   data-testid="button-generate-report"
+                  onClick={handleGenerateReport}
                 >
                   <BarChart3 className="h-4 w-4 mr-2" />
                   生成报表
@@ -206,6 +277,7 @@ export default function Reports() {
                 <Button 
                   className="bg-success text-success-foreground hover:bg-success/90"
                   data-testid="button-export-data"
+                  onClick={handleExportData}
                 >
                   <Download className="h-4 w-4 mr-2" />
                   导出数据

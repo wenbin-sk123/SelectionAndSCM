@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Minus, Warehouse, Package, AlertTriangle, RotateCcw } from "lucide-react";
+import { Plus, Minus, Warehouse, Package, AlertTriangle, RotateCcw, Download } from "lucide-react";
 
 export default function Inventory() {
   const { toast } = useToast();
@@ -136,6 +136,47 @@ export default function Inventory() {
                 >
                   <Minus className="h-4 w-4 mr-2" />
                   出库
+                </Button>
+                <Button 
+                  className="bg-primary text-white hover:bg-primary/90"
+                  data-testid="button-export-inventory"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/export/inventory?taskId=default', {
+                        method: 'GET',
+                        credentials: 'include',
+                      });
+                      
+                      if (!response.ok) {
+                        throw new Error('导出失败');
+                      }
+                      
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `inventory-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                      
+                      toast({
+                        title: "导出成功",
+                        description: "库存数据已成功导出为Excel文件",
+                      });
+                    } catch (error) {
+                      console.error('Export error:', error);
+                      toast({
+                        title: "导出失败",
+                        description: "无法导出库存数据，请稍后重试",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  导出数据
                 </Button>
               </div>
             </div>

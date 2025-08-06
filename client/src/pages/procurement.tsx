@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, MessageCircle } from "lucide-react";
+import { Plus, MessageCircle, Download } from "lucide-react";
 
 const negotiationSchema = z.object({
   supplierId: z.string().min(1, "请选择供应商"),
@@ -97,13 +97,56 @@ export default function Procurement() {
                 <h2 className="text-2xl font-bold text-neutral-800">采购管理</h2>
                 <p className="text-neutral-600 mt-2">供应商管理、谈判模拟和合同管理</p>
               </div>
-              <Button 
-                className="bg-primary text-white hover:bg-primary/90"
-                data-testid="button-create-order"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                新增采购订单
-              </Button>
+              <div className="flex space-x-3">
+                <Button 
+                  className="bg-success text-success-foreground hover:bg-success/90"
+                  data-testid="button-export-procurement"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/export/orders?taskId=default&orderType=purchase', {
+                        method: 'GET',
+                        credentials: 'include',
+                      });
+                      
+                      if (!response.ok) {
+                        throw new Error('导出失败');
+                      }
+                      
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `procurement-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                      
+                      toast({
+                        title: "导出成功",
+                        description: "采购数据已成功导出为Excel文件",
+                      });
+                    } catch (error) {
+                      console.error('Export error:', error);
+                      toast({
+                        title: "导出失败",
+                        description: "无法导出采购数据，请稍后重试",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  导出数据
+                </Button>
+                <Button 
+                  className="bg-primary text-white hover:bg-primary/90"
+                  data-testid="button-create-order"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  新增采购订单
+                </Button>
+              </div>
             </div>
           </div>
           

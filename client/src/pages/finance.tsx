@@ -357,7 +357,44 @@ export default function Finance() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>财务报表</CardTitle>
-              <Button className="bg-primary text-white hover:bg-primary/90" data-testid="button-export-report">
+              <Button 
+                className="bg-primary text-white hover:bg-primary/90" 
+                data-testid="button-export-report"
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/export/financial?taskId=default', {
+                      method: 'GET',
+                      credentials: 'include',
+                    });
+                    
+                    if (!response.ok) {
+                      throw new Error('导出失败');
+                    }
+                    
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `financial-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    toast({
+                      title: "导出成功",
+                      description: "财务报表已成功导出为Excel文件",
+                    });
+                  } catch (error) {
+                    console.error('Export error:', error);
+                    toast({
+                      title: "导出失败",
+                      description: "无法导出财务报表，请稍后重试",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
                 <Download className="h-4 w-4 mr-2" />
                 导出报表
               </Button>
