@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { db } from '../db';
-import { financialRecords, evaluationRecords, orders, inventory, suppliers, products } from '@shared/schema';
+import { financialRecords, evaluationRecords, orders, inventoryRecords, suppliers, products } from '@shared/schema';
 import { eq, and, between, desc } from 'drizzle-orm';
 
 export class ExportService {
@@ -28,17 +28,33 @@ export class ExportService {
       
       // Transform data for Excel
       const excelData = records.map(record => ({
-        '记录ID': record.id,
-        '任务ID': record.taskId,
-        '类型': record.type === 'revenue' ? '收入' : record.type === 'cost' ? '成本' : '费用',
-        '金额': record.amount,
-        '描述': record.description,
-        '创建时间': record.createdAt?.toLocaleDateString('zh-CN'),
+        '记录ID': record.id || '',
+        '任务ID': record.taskId || '',
+        '类型': record.recordType === 'income' ? '收入' : 
+               record.recordType === 'expense' ? '支出' : 
+               record.recordType === 'investment' ? '投资' : '其他',
+        '金额': record.amount || 0,
+        '描述': record.description || '',
+        '分类': record.category || '',
+        '创建时间': record.createdAt?.toLocaleDateString('zh-CN') || '',
       }));
       
       // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
+      
+      // If no data, create empty sheet with headers
+      if (excelData.length === 0) {
+        excelData.push({
+          '记录ID': '',
+          '任务ID': '',
+          '类型': '暂无数据',
+          '金额': 0,
+          '描述': '',
+          '分类': '',
+          '创建时间': '',
+        });
+      }
       
       // Add worksheet to workbook
       XLSX.utils.book_append_sheet(wb, ws, '财务报表');
@@ -65,22 +81,37 @@ export class ExportService {
         query = query.where(eq(evaluationRecords.taskId, taskId));
       }
       
-      const records = await query.orderBy(desc(evaluationRecords.createdAt));
+      const records = await query.orderBy(desc(evaluationRecords.completedAt));
       
       // Transform data for Excel
       const excelData = records.map(record => ({
-        '评估ID': record.id,
-        '任务ID': record.taskId,
-        '总分': record.totalScore,
-        '评级': record.grade,
-        '财务表现': record.financialPerformance,
-        '运营效率': record.operationalEfficiency,
-        '市场洞察': record.marketInsight,
-        '风险控制': record.riskControl,
-        '学习能力': record.learningAbility,
-        '评语': record.feedback,
-        '创建时间': record.createdAt?.toLocaleDateString('zh-CN'),
+        '评估ID': record.id || '',
+        '任务ID': record.taskId || '',
+        '财务得分': record.financialScore || 0,
+        '运营得分': record.operationalScore || 0,
+        '决策得分': record.decisionScore || 0,
+        '学习得分': record.learningScore || 0,
+        '总分': record.totalScore || 0,
+        '等级': record.grade || '',
+        '评语': record.feedback || '',
+        '完成时间': record.completedAt?.toLocaleDateString('zh-CN') || '',
       }));
+      
+      // If no data, create empty sheet with headers
+      if (excelData.length === 0) {
+        excelData.push({
+          '评估ID': '',
+          '任务ID': '',
+          '财务得分': 0,
+          '运营得分': 0,
+          '决策得分': 0,
+          '学习得分': 0,
+          '总分': 0,
+          '等级': '暂无数据',
+          '评语': '',
+          '完成时间': '',
+        });
+      }
       
       // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
@@ -106,59 +137,78 @@ export class ExportService {
     try {
       // Fetch inventory data
       const records = await db.select({
-        id: inventory.id,
-        productId: inventory.productId,
+        id: inventoryRecords.id,
+        productId: inventoryRecords.productId,
         productName: products.name,
         sku: products.sku,
         category: products.category,
-        currentStock: inventory.currentStock,
-        safetyStock: inventory.safetyStock,
-        unitPrice: products.price,
-        status: inventory.status,
-        updatedAt: inventory.updatedAt,
+        currentStock: inventoryRecords.currentStock,
+        reservedStock: inventoryRecords.reservedStock,
+        safetyStock: products.safetyStock,
+        unitPrice: products.unitPrice,
+        lastUpdated: inventoryRecords.lastUpdated,
       })
-      .from(inventory)
-      .leftJoin(products, eq(inventory.productId, products.id))
+      .from(inventoryRecords)
+      .leftJoin(products, eq(inventoryRecords.productId, products.id))
       .where(
         and(
-          eq(inventory.userId, userId),
-          eq(inventory.taskId, taskId)
+          eq(inventoryRecords.userId, userId),
+          eq(inventoryRecords.taskId, taskId)
         )
       );
       
       // Transform data for Excel
       const excelData = records.map(record => ({
-        '库存ID': record.id,
-        'SKU': record.sku,
-        '商品名称': record.productName,
-        '分类': record.category,
-        '当前库存': record.currentStock,
-        '安全库存': record.safetyStock,
-        '单价': record.unitPrice,
-        '库存价值': (record.currentStock || 0) * (record.unitPrice || 0),
-        '状态': record.status === 'normal' ? '正常' : 
-                record.status === 'shortage' ? '库存不足' : 
-                record.status === 'overstocked' ? '库存过多' : record.status,
-        '更新时间': record.updatedAt?.toLocaleDateString('zh-CN'),
+        '库存ID': record.id || '',
+        'SKU': record.sku || '',
+        '商品名称': record.productName || '',
+        '分类': record.category || '',
+        '当前库存': record.currentStock || 0,
+        '预留库存': record.reservedStock || 0,
+        '安全库存': record.safetyStock || 0,
+        '单价': record.unitPrice || 0,
+        '库存价值': (record.currentStock || 0) * (Number(record.unitPrice) || 0),
+        '状态': (record.currentStock || 0) < (record.safetyStock || 0) ? '库存不足' : '正常',
+        '更新时间': record.lastUpdated?.toLocaleDateString('zh-CN') || '',
       }));
       
       // Calculate summary
       const totalValue = excelData.reduce((sum, item) => sum + (item['库存价值'] || 0), 0);
       const totalItems = excelData.reduce((sum, item) => sum + (item['当前库存'] || 0), 0);
       
-      // Add summary row
-      excelData.push({
-        '库存ID': '',
-        'SKU': '',
-        '商品名称': '合计',
-        '分类': '',
-        '当前库存': totalItems,
-        '安全库存': '',
-        '单价': '',
-        '库存价值': totalValue,
-        '状态': '',
-        '更新时间': '',
-      });
+      // Add summary row if there's data
+      if (excelData.length > 0) {
+        excelData.push({
+          '库存ID': '',
+          'SKU': '',
+          '商品名称': '合计',
+          '分类': '',
+          '当前库存': totalItems,
+          '预留库存': 0,
+          '安全库存': 0,
+          '单价': 0,
+          '库存价值': totalValue,
+          '状态': '',
+          '更新时间': '',
+        });
+      }
+      
+      // If no data, create empty sheet with headers
+      if (excelData.length === 0) {
+        excelData.push({
+          '库存ID': '',
+          'SKU': '',
+          '商品名称': '暂无数据',
+          '分类': '',
+          '当前库存': 0,
+          '预留库存': 0,
+          '安全库存': 0,
+          '单价': 0,
+          '库存价值': 0,
+          '状态': '',
+          '更新时间': '',
+        });
+      }
       
       // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
@@ -185,9 +235,9 @@ export class ExportService {
       // Fetch orders data
       let query = db.select({
         id: orders.id,
+        orderNumber: orders.orderNumber,
         orderType: orders.orderType,
         supplierName: suppliers.name,
-        customerName: orders.customerName,
         totalAmount: orders.totalAmount,
         status: orders.status,
         createdAt: orders.createdAt,
@@ -209,16 +259,16 @@ export class ExportService {
       
       // Transform data for Excel
       const excelData = records.map(record => ({
-        '订单ID': record.id,
+        '订单ID': record.id || '',
+        '订单号': record.orderNumber || '',
         '订单类型': record.orderType === 'purchase' ? '采购订单' : '销售订单',
         '供应商': record.supplierName || '-',
-        '客户': record.customerName || '-',
-        '总金额': record.totalAmount,
+        '总金额': Number(record.totalAmount) || 0,
         '状态': record.status === 'pending' ? '待处理' :
-                record.status === 'processing' ? '处理中' :
+                record.status === 'confirmed' ? '已确认' :
                 record.status === 'completed' ? '已完成' :
                 record.status === 'cancelled' ? '已取消' : record.status,
-        '创建时间': record.createdAt?.toLocaleDateString('zh-CN'),
+        '创建时间': record.createdAt?.toLocaleDateString('zh-CN') || '',
       }));
       
       // Calculate summary
@@ -226,16 +276,31 @@ export class ExportService {
       const purchaseCount = excelData.filter(item => item['订单类型'] === '采购订单').length;
       const saleCount = excelData.filter(item => item['订单类型'] === '销售订单').length;
       
-      // Add summary rows
-      excelData.push({
-        '订单ID': '',
-        '订单类型': '统计',
-        '供应商': `采购订单: ${purchaseCount}`,
-        '客户': `销售订单: ${saleCount}`,
-        '总金额': totalAmount,
-        '状态': `总订单数: ${excelData.length - 1}`,
-        '创建时间': '',
-      });
+      // Add summary rows if there's data
+      if (excelData.length > 0) {
+        excelData.push({
+          '订单ID': '',
+          '订单号': '',
+          '订单类型': '统计',
+          '供应商': `采购订单: ${purchaseCount}`,
+          '总金额': totalAmount,
+          '状态': `总订单数: ${excelData.length}`,
+          '创建时间': '',
+        });
+      }
+      
+      // If no data, create empty sheet with headers
+      if (excelData.length === 0) {
+        excelData.push({
+          '订单ID': '',
+          '订单号': '',
+          '订单类型': '暂无数据',
+          '供应商': '',
+          '总金额': 0,
+          '状态': '',
+          '创建时间': '',
+        });
+      }
       
       // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
@@ -279,23 +344,23 @@ export class ExportService {
           productName: products.name,
           sku: products.sku,
           category: products.category,
-          currentStock: inventory.currentStock,
-          safetyStock: inventory.safetyStock,
-          unitPrice: products.price,
-          status: inventory.status,
+          currentStock: inventoryRecords.currentStock,
+          reservedStock: inventoryRecords.reservedStock,
+          safetyStock: products.safetyStock,
+          unitPrice: products.unitPrice,
         })
-        .from(inventory)
-        .leftJoin(products, eq(inventory.productId, products.id))
+        .from(inventoryRecords)
+        .leftJoin(products, eq(inventoryRecords.productId, products.id))
         .where(
           and(
-            eq(inventory.userId, userId),
-            eq(inventory.taskId, taskId)
+            eq(inventoryRecords.userId, userId),
+            eq(inventoryRecords.taskId, taskId)
           )
         ),
         db.select({
+          orderNumber: orders.orderNumber,
           orderType: orders.orderType,
           supplierName: suppliers.name,
-          customerName: orders.customerName,
           totalAmount: orders.totalAmount,
           status: orders.status,
           createdAt: orders.createdAt,
