@@ -126,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({
         title: "已退出登录",
       });
+      window.location.href = "/auth";
     },
     onError: (error: Error) => {
       toast({
