@@ -10,7 +10,6 @@ import {
   evaluationRecords,
   marketData,
   type User,
-  type UpsertUser,
   type TrainingTask,
   type InsertTrainingTask,
   type StudentProgress,

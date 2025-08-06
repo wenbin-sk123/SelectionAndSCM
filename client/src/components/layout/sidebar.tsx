@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth.tsx";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -11,7 +10,6 @@ import {
   DollarSign,
   BarChart3,
   GraduationCap,
-  LogOut,
 } from "lucide-react";
 
 const navigation = [
@@ -26,11 +24,7 @@ const navigation = [
 
 export default function Sidebar() {
   const [location] = useLocation();
-  const { user, logoutMutation } = useAuth();
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
-  };
+  const { user } = useAuth();
 
   const getRoleText = (role: string) => {
     switch (role) {
@@ -84,36 +78,7 @@ export default function Sidebar() {
         </ul>
       </div>
 
-      <div className="absolute bottom-4 left-4 right-4">
-        <div className="bg-gray-100 p-3 rounded-md">
-          <div className="flex items-center mb-2">
-            <img
-              src={user?.avatarUrl || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"}
-              alt="用户头像"
-              className="w-10 h-10 rounded-full object-cover mr-3"
-              data-testid="img-user-avatar"
-            />
-            <div>
-              <p className="font-medium text-neutral-800" data-testid="text-user-name">
-                {user?.name || user?.email?.split('@')[0] || user?.phone || "用户"}
-              </p>
-              <p className="text-xs text-neutral-600" data-testid="text-student-id">
-                学号: {user?.studentId || "N/A"}
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="text-xs text-neutral-600 hover:text-primary w-full justify-start p-0"
-            data-testid="button-logout"
-          >
-            <LogOut className="h-3 w-3 mr-1" />
-            退出登录
-          </Button>
-        </div>
-      </div>
+
     </nav>
   );
 }

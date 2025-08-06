@@ -122,6 +122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Only allow updating certain fields
       if (req.body.name !== undefined) updates.name = req.body.name;
       if (req.body.avatarUrl !== undefined) updates.avatarUrl = req.body.avatarUrl;
+      if (req.body.studentId !== undefined) updates.studentId = req.body.studentId;
       
       const updatedUser = await storage.updateUser(userId, updates);
       const { password, ...userWithoutPassword } = updatedUser;
@@ -785,7 +786,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market", isAuthenticated, async (req, res) => {
     try {
       const { MarketService } = await import('./services/marketService');
-      const marketData = await MarketService.getMarketTrends();
+      const categories = ['服装', '电子产品', '食品', '家居用品', '运动用品', '美妆护肤'];
+      const marketData = await MarketService.analyzeMarketTrends(categories);
       res.json(marketData);
     } catch (error) {
       console.error("Error fetching market data:", error);
