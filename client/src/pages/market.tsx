@@ -13,25 +13,10 @@ import { Globe, Flame, Users, TrendingUp } from "lucide-react";
 
 export default function Market() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "未授权",
-        description: "您已退出登录，正在重新登录...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/auth";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
 
   const { data: marketData, isLoading: marketLoading } = useQuery({
     queryKey: ["/api/market"],
-    enabled: isAuthenticated,
+    
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
         toast({

@@ -31,7 +31,7 @@ export default function Tasks() {
 
   const { data: tasks, isLoading: tasksLoading } = useQuery({
     queryKey: ["/api/tasks"],
-    enabled: isAuthenticated,
+    
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
         toast({

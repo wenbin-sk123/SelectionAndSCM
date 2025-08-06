@@ -12,40 +12,10 @@ import PieChart from "@/components/charts/pie-chart";
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "未授权",
-        description: "您已退出登录，正在重新登录...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/auth";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
+  const { user } = useAuth();
 
   const { data: kpis, isLoading: kpisLoading } = useQuery({
-    queryKey: ["/api/dashboard/kpis"],
-    queryParams: { taskId: "default" },
-    enabled: isAuthenticated,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "未授权",
-          description: "您已退出登录，正在重新登录...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/auth";
-        }, 500);
-        return;
-      }
-    },
+    queryKey: ["/api/dashboard/kpis", "default"],
   });
 
   const financeData = {

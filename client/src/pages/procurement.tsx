@@ -14,25 +14,10 @@ import { Plus, MessageCircle } from "lucide-react";
 
 export default function Procurement() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "未授权",
-        description: "您已退出登录，正在重新登录...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/auth";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
 
   const { data: suppliers, isLoading: suppliersLoading } = useQuery({
     queryKey: ["/api/suppliers"],
-    enabled: isAuthenticated,
+    
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
         toast({
@@ -50,7 +35,7 @@ export default function Procurement() {
 
   const { data: orders, isLoading: ordersLoading } = useQuery({
     queryKey: ["/api/orders"],
-    enabled: isAuthenticated,
+    
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
         toast({
