@@ -111,14 +111,16 @@ export default function Tasks() {
     mutationFn: async (data: CreateTaskForm) => {
       return await apiRequest("POST", "/api/tasks", data);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "任务创建成功",
         description: "新的实训任务已创建",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       setCreateDialogOpen(false);
       form.reset();
+      // Force refetch to get latest data
+      await queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/tasks"] });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -165,7 +167,7 @@ export default function Tasks() {
       if (!selectedTask) return;
       return await apiRequest("PATCH", `/api/tasks/${selectedTask.id}`, data);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "成功",
         description: "任务更新成功",
@@ -173,7 +175,9 @@ export default function Tasks() {
       setEditDialogOpen(false);
       setSelectedTask(null);
       editForm.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      // Force refetch to get latest data
+      await queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/tasks"] });
     },
     onError: (error: Error) => {
       toast({
@@ -188,14 +192,16 @@ export default function Tasks() {
     mutationFn: async (taskId: string) => {
       return await apiRequest("DELETE", `/api/tasks/${taskId}`);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "成功",
         description: "任务删除成功",
       });
       setDeleteDialogOpen(false);
       setTaskToDelete(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      // Force refetch to get latest data
+      await queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/tasks"] });
     },
     onError: (error: Error) => {
       toast({

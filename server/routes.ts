@@ -276,6 +276,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update task
+  app.patch("/api/tasks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      
+      // Check if user is teacher or admin
+      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only teachers and admins can update tasks" });
+      }
+
+      const taskId = req.params.id;
+      const updateData = req.body;
+      
+      // Update the task
+      const updatedTask = await storage.updateTrainingTask(taskId, updateData);
+      
+      if (!updatedTask) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json(updatedTask);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      res.status(500).json({ message: "Failed to update task" });
+    }
+  });
+
+  // Delete task  
+  app.delete("/api/tasks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      
+      // Check if user is teacher or admin
+      if (user?.role !== 'teacher' && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Only teachers and admins can delete tasks" });
+      }
+
+      const taskId = req.params.id;
+      
+      // Delete the task
+      const deleted = await storage.deleteTrainingTask(taskId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json({ message: "Task deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
   // Task execution endpoints using business logic services
   app.post("/api/tasks/:taskId/start", isAuthenticated, async (req: any, res) => {
     try {

@@ -46,6 +46,7 @@ export interface IStorage {
   createTrainingTask(task: InsertTrainingTask): Promise<TrainingTask>;
   updateTrainingTask(id: string, updates: Partial<InsertTrainingTask>): Promise<TrainingTask>;
   getTrainingTask(id: string): Promise<TrainingTask | undefined>;
+  deleteTrainingTask(id: string): Promise<boolean>;
   
   // Student progress operations
   getStudentProgress(userId: string, taskId?: string): Promise<StudentProgress[]>;
@@ -142,6 +143,11 @@ export class DatabaseStorage implements IStorage {
   async getTrainingTask(id: string): Promise<TrainingTask | undefined> {
     const [task] = await db.select().from(trainingTasks).where(eq(trainingTasks.id, id));
     return task;
+  }
+
+  async deleteTrainingTask(id: string): Promise<boolean> {
+    const result = await db.delete(trainingTasks).where(eq(trainingTasks.id, id)).returning();
+    return result.length > 0;
   }
 
   // Student progress operations
