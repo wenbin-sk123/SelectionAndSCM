@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -14,10 +14,28 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Minus, Warehouse, Package, AlertTriangle, RotateCcw, Download } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 
 export default function Inventory() {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
+  const [inboundDialogOpen, setInboundDialogOpen] = useState(false);
+  const [outboundDialogOpen, setOutboundDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [quantity, setQuantity] = useState("");
+  const [unitPrice, setUnitPrice] = useState("");
+  
+  // Get current task ID - using 'default' as fallback
+  const taskId = 'default';
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -34,7 +52,21 @@ export default function Inventory() {
   }, [isAuthenticated, toast]);
 
   const { data: inventoryItems = [], isLoading: inventoryLoading } = useQuery<any[]>({
-    queryKey: ["/api/inventory"],
+    queryKey: ["/api/inventory", taskId],
+    queryFn: async () => {
+      const response = await fetch(`/api/inventory?taskId=${taskId}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        if (response.status === 400) {
+          // If taskId is required but missing, return empty array
+          return [];
+        }
+        throw new Error('Failed to fetch inventory');
+      }
+      return response.json();
+    },
+    enabled: !!taskId,
   });
 
   const { data: inventoryStats = {} } = useQuery<any>({
@@ -127,6 +159,7 @@ export default function Inventory() {
                 <Button 
                   className="bg-success text-success-foreground hover:bg-success/90"
                   data-testid="button-inbound"
+                  onClick={() => setInboundDialogOpen(true)}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   入库
@@ -134,6 +167,7 @@ export default function Inventory() {
                 <Button 
                   className="bg-warning text-warning-foreground hover:bg-warning/90"
                   data-testid="button-outbound"
+                  onClick={() => setOutboundDialogOpen(true)}
                 >
                   <Minus className="h-4 w-4 mr-2" />
                   出库
@@ -367,6 +401,220 @@ export default function Inventory() {
           </Card>
         </div>
       </main>
+      
+      {/* 入库对话框 */}
+      <Dialog open={inboundDialogOpen} onOpenChange={setInboundDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>商品入库</DialogTitle>
+            <DialogDescription>
+              请输入入库商品信息
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="inbound-product">选择商品</Label>
+              <Select onValueChange={(value) => setSelectedProduct(value)}>
+                <SelectTrigger id="inbound-product">
+                  <SelectValue placeholder="选择商品" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="phone">智能手机</SelectItem>
+                  <SelectItem value="laptop">笔记本电脑</SelectItem>
+                  <SelectItem value="headphone">蓝牙耳机</SelectItem>
+                  <SelectItem value="watch">智能手表</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="inbound-quantity">入库数量</Label>
+              <Input
+                id="inbound-quantity"
+                type="number"
+                placeholder="请输入数量"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="inbound-price">单位成本（元）</Label>
+              <Input
+                id="inbound-price"
+                type="number"
+                placeholder="请输入单位成本"
+                value={unitPrice}
+                onChange={(e) => setUnitPrice(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setInboundDialogOpen(false);
+                  setQuantity("");
+                  setUnitPrice("");
+                  setSelectedProduct(null);
+                }}
+              >
+                取消
+              </Button>
+              <Button
+                className="bg-success text-success-foreground"
+                onClick={async () => {
+                  if (!selectedProduct || !quantity || !unitPrice) {
+                    toast({
+                      title: "请填写完整信息",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  try {
+                    await apiRequest('/api/inventory/incoming', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        taskId,
+                        productId: selectedProduct,
+                        quantity: parseInt(quantity),
+                        unitCost: parseFloat(unitPrice),
+                      }),
+                    });
+                    
+                    toast({
+                      title: "入库成功",
+                      description: `商品已成功入库 ${quantity} 件`,
+                    });
+                    
+                    // 刷新库存数据
+                    queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/inventory/statistics"] });
+                    
+                    setInboundDialogOpen(false);
+                    setQuantity("");
+                    setUnitPrice("");
+                    setSelectedProduct(null);
+                  } catch (error) {
+                    toast({
+                      title: "入库失败",
+                      description: "请稍后重试",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                确认入库
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 出库对话框 */}
+      <Dialog open={outboundDialogOpen} onOpenChange={setOutboundDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>商品出库</DialogTitle>
+            <DialogDescription>
+              请输入出库商品信息
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="outbound-product">选择商品</Label>
+              <Select onValueChange={(value) => setSelectedProduct(value)}>
+                <SelectTrigger id="outbound-product">
+                  <SelectValue placeholder="选择商品" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="phone">智能手机</SelectItem>
+                  <SelectItem value="laptop">笔记本电脑</SelectItem>
+                  <SelectItem value="headphone">蓝牙耳机</SelectItem>
+                  <SelectItem value="watch">智能手表</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="outbound-quantity">出库数量</Label>
+              <Input
+                id="outbound-quantity"
+                type="number"
+                placeholder="请输入数量"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="outbound-price">单位售价（元）</Label>
+              <Input
+                id="outbound-price"
+                type="number"
+                placeholder="请输入单位售价"
+                value={unitPrice}
+                onChange={(e) => setUnitPrice(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setOutboundDialogOpen(false);
+                  setQuantity("");
+                  setUnitPrice("");
+                  setSelectedProduct(null);
+                }}
+              >
+                取消
+              </Button>
+              <Button
+                className="bg-warning text-warning-foreground"
+                onClick={async () => {
+                  if (!selectedProduct || !quantity || !unitPrice) {
+                    toast({
+                      title: "请填写完整信息",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  try {
+                    await apiRequest('/api/inventory/outgoing', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        taskId,
+                        productId: selectedProduct,
+                        quantity: parseInt(quantity),
+                        unitPrice: parseFloat(unitPrice),
+                      }),
+                    });
+                    
+                    toast({
+                      title: "出库成功",
+                      description: `商品已成功出库 ${quantity} 件`,
+                    });
+                    
+                    // 刷新库存数据
+                    queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/inventory/statistics"] });
+                    
+                    setOutboundDialogOpen(false);
+                    setQuantity("");
+                    setUnitPrice("");
+                    setSelectedProduct(null);
+                  } catch (error) {
+                    toast({
+                      title: "出库失败",
+                      description: "请稍后重试",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                确认出库
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
