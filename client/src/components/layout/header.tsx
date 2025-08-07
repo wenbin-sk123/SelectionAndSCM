@@ -131,10 +131,7 @@ export default function Header({ title, breadcrumb }: HeaderProps) {
                 )}
                 
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>个人信息</span>
-                </DropdownMenuItem>
+                
                 <DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>账号设置</span>
