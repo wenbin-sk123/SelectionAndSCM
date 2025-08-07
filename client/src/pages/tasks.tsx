@@ -398,30 +398,30 @@ export default function Tasks() {
                 <table className="w-full table-fixed" data-testid="table-tasks">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="w-2/5 px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">任务名称</th>
-                      <th className="w-1/6 px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">状态</th>
-                      <th className="w-1/6 px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">进度</th>
-                      <th className="w-1/12 px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">评分</th>
-                      <th className="w-1/6 px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider">操作</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider" style={{ width: '35%' }}>任务名称</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider" style={{ width: '15%' }}>状态</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider" style={{ width: '20%' }}>进度</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider" style={{ width: '10%' }}>评分</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-600 uppercase tracking-wider" style={{ width: '20%' }}>操作</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {tasks && tasks.length > 0 ? (
                       tasks.map((task: any) => (
                         <tr key={task.id} data-testid={`row-task-${task.id}`}>
-                          <td className="px-6 py-4 w-2/5">
+                          <td className="px-6 py-4" style={{ width: '35%' }}>
                             <div>
                               <div className="text-sm font-medium text-neutral-900 text-truncate-2 pr-2">{task.name}</div>
                               <div className="text-sm text-neutral-500 mt-1">初始资金：¥{parseFloat(task.initialBudget).toLocaleString()}</div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 w-1/6 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap" style={{ width: '15%' }}>
                             <Badge className={getStatusColor(task.status)}>
                               {getStatusIcon(task.status)}
                               <span className="ml-1">{getStatusText(task.status)}</span>
                             </Badge>
                           </td>
-                          <td className="px-6 py-4 w-1/6 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap" style={{ width: '20%' }}>
                             <div className="flex items-center">
                               <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
                                 <div 
@@ -434,12 +434,12 @@ export default function Tasks() {
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 w-1/12 whitespace-nowrap text-sm text-neutral-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900" style={{ width: '10%' }}>
                             {task.status === 'completed' ? (
                               <span className="font-bold text-success">92分</span>
                             ) : '--'}
                           </td>
-                          <td className="px-6 py-4 w-1/6 whitespace-nowrap text-right text-sm font-medium">
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ width: '20%' }}>
                             {(user?.role === 'teacher' || user?.role === 'admin') ? (
                               <>
                                 <Button 
