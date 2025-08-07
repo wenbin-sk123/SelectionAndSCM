@@ -30,9 +30,18 @@ export default function Inventory() {
   const { user, isAuthenticated } = useAuth();
   const [inboundDialogOpen, setInboundDialogOpen] = useState(false);
   const [outboundDialogOpen, setOutboundDialogOpen] = useState(false);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [quantity, setQuantity] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    category: "",
+    description: "",
+    unitPrice: "",
+    safetyStock: "",
+    sku: "",
+  });
   
   // Get current task ID - using 'default' as fallback
   const taskId = 'default';
@@ -71,6 +80,10 @@ export default function Inventory() {
 
   const { data: inventoryStats = {} } = useQuery<any>({
     queryKey: ["/api/inventory/statistics"],
+  });
+  
+  const { data: products = [] } = useQuery<any[]>({
+    queryKey: ["/api/products"],
   });
 
   const inventoryTrendData = {
@@ -156,6 +169,14 @@ export default function Inventory() {
                 <p className="text-neutral-600 mt-2">库存监控、预警系统和优化建议</p>
               </div>
               <div className="flex space-x-3">
+                <Button 
+                  className="bg-primary text-white hover:bg-primary/90"
+                  data-testid="button-manage-products"
+                  onClick={() => setProductDialogOpen(true)}
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  商品管理
+                </Button>
                 <Button 
                   className="bg-success text-success-foreground hover:bg-success/90"
                   data-testid="button-inbound"
@@ -419,10 +440,17 @@ export default function Inventory() {
                   <SelectValue placeholder="选择商品" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="phone">智能手机</SelectItem>
-                  <SelectItem value="laptop">笔记本电脑</SelectItem>
-                  <SelectItem value="headphone">蓝牙耳机</SelectItem>
-                  <SelectItem value="watch">智能手表</SelectItem>
+                  {products.length > 0 ? (
+                    products.map((product: any) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      暂无商品，请先添加商品
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -526,10 +554,17 @@ export default function Inventory() {
                   <SelectValue placeholder="选择商品" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="phone">智能手机</SelectItem>
-                  <SelectItem value="laptop">笔记本电脑</SelectItem>
-                  <SelectItem value="headphone">蓝牙耳机</SelectItem>
-                  <SelectItem value="watch">智能手表</SelectItem>
+                  {products.length > 0 ? (
+                    products.map((product: any) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      暂无商品，请先添加商品
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -612,6 +647,188 @@ export default function Inventory() {
                 确认出库
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 商品管理对话框 */}
+      <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>商品管理</DialogTitle>
+            <DialogDescription>
+              管理系统中的商品信息，可以新增商品到商品库
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* 新增商品表单 */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <h3 className="font-medium text-lg">新增商品</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="product-name">商品名称</Label>
+                  <Input
+                    id="product-name"
+                    placeholder="请输入商品名称"
+                    value={newProduct.name}
+                    onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="product-sku">商品编码(SKU)</Label>
+                  <Input
+                    id="product-sku"
+                    placeholder="请输入商品编码"
+                    value={newProduct.sku}
+                    onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="product-category">商品分类</Label>
+                  <Select
+                    value={newProduct.category}
+                    onValueChange={(value) => setNewProduct({...newProduct, category: value})}
+                  >
+                    <SelectTrigger id="product-category">
+                      <SelectValue placeholder="选择分类" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="electronics">电子产品</SelectItem>
+                      <SelectItem value="clothing">服装配饰</SelectItem>
+                      <SelectItem value="home">家居用品</SelectItem>
+                      <SelectItem value="beauty">美妆个护</SelectItem>
+                      <SelectItem value="food">食品饮料</SelectItem>
+                      <SelectItem value="sports">运动户外</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="product-price">单位价格（元）</Label>
+                  <Input
+                    id="product-price"
+                    type="number"
+                    placeholder="请输入单位价格"
+                    value={newProduct.unitPrice}
+                    onChange={(e) => setNewProduct({...newProduct, unitPrice: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="product-safety">安全库存</Label>
+                  <Input
+                    id="product-safety"
+                    type="number"
+                    placeholder="请输入安全库存数量"
+                    value={newProduct.safetyStock}
+                    onChange={(e) => setNewProduct({...newProduct, safetyStock: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="product-desc">商品描述</Label>
+                  <Input
+                    id="product-desc"
+                    placeholder="请输入商品描述"
+                    value={newProduct.description}
+                    onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                  />
+                </div>
+              </div>
+              <Button
+                className="w-full bg-primary text-white"
+                onClick={async () => {
+                  if (!newProduct.name || !newProduct.category || !newProduct.unitPrice) {
+                    toast({
+                      title: "请填写必要信息",
+                      description: "商品名称、分类和价格为必填项",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  try {
+                    await apiRequest('/api/products', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        name: newProduct.name,
+                        category: newProduct.category,
+                        description: newProduct.description || '',
+                        sku: newProduct.sku || `SKU${Date.now()}`,
+                        unitPrice: parseFloat(newProduct.unitPrice),
+                        safetyStock: parseInt(newProduct.safetyStock) || 0,
+                      }),
+                    });
+                    
+                    toast({
+                      title: "商品添加成功",
+                      description: `${newProduct.name} 已成功添加到商品库`,
+                    });
+                    
+                    // 刷新商品列表
+                    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+                    
+                    // 清空表单
+                    setNewProduct({
+                      name: "",
+                      category: "",
+                      description: "",
+                      unitPrice: "",
+                      safetyStock: "",
+                      sku: "",
+                    });
+                  } catch (error) {
+                    toast({
+                      title: "添加失败",
+                      description: "请检查您的权限或稍后重试",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                添加商品
+              </Button>
+            </div>
+            
+            {/* 现有商品列表 */}
+            <div className="border rounded-lg p-4">
+              <h3 className="font-medium text-lg mb-3">现有商品列表</h3>
+              <div className="max-h-64 overflow-y-auto">
+                {products.length > 0 ? (
+                  <div className="space-y-2">
+                    {products.map((product: any) => (
+                      <div key={product.id} className="flex items-center justify-between p-2 border rounded hover:bg-gray-50">
+                        <div className="flex-1">
+                          <div className="font-medium">{product.name}</div>
+                          <div className="text-sm text-gray-500">
+                            分类: {product.category} | SKU: {product.sku} | 价格: ¥{product.unitPrice}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">暂无商品，请先添加商品</p>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setProductDialogOpen(false);
+                setNewProduct({
+                  name: "",
+                  category: "",
+                  description: "",
+                  unitPrice: "",
+                  safetyStock: "",
+                  sku: "",
+                });
+              }}
+            >
+              关闭
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
