@@ -324,8 +324,8 @@ export default function Tasks() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="p-3 border border-info/30 rounded-lg bg-info/5" data-testid="task-active">
-                    <h4 className="font-medium text-neutral-800 line-clamp-2">电子产品供应链优化</h4>
-                    <p className="text-sm text-neutral-600 mt-1 line-clamp-2">目标：优化智能手机供应链，降低成本15%</p>
+                    <h4 className="font-medium text-neutral-800 text-truncate-2">电子产品供应链优化</h4>
+                    <p className="text-sm text-neutral-600 mt-1 text-truncate-2">目标：优化智能手机供应链，降低成本15%</p>
                     <div className="mt-2">
                       <div className="flex items-center justify-between text-xs text-neutral-600 mb-1">
                         <span>进度</span>
@@ -348,8 +348,8 @@ export default function Tasks() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="p-3 border border-warning/30 rounded-lg bg-warning/5" data-testid="task-pending">
-                    <h4 className="font-medium text-neutral-800 line-clamp-2">家居用品市场分析</h4>
-                    <p className="text-sm text-neutral-600 mt-1 line-clamp-2">分析家居用品市场趋势和竞争格局</p>
+                    <h4 className="font-medium text-neutral-800 text-truncate-2">家居用品市场分析</h4>
+                    <p className="text-sm text-neutral-600 mt-1 text-truncate-2">分析家居用品市场趋势和竞争格局</p>
                     <Button 
                       size="sm"
                       className="mt-2 bg-warning text-warning-foreground hover:bg-warning/90"
@@ -372,7 +372,7 @@ export default function Tasks() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="p-3 border border-success/30 rounded-lg bg-success/5" data-testid="task-completed">
-                    <h4 className="font-medium text-neutral-800 line-clamp-2">服装采购策略制定</h4>
+                    <h4 className="font-medium text-neutral-800 text-truncate-2">服装采购策略制定</h4>
                     <p className="text-sm text-neutral-600 mt-1">评分：92分 - 优秀</p>
                     <Button 
                       size="sm"
@@ -410,8 +410,8 @@ export default function Tasks() {
                       tasks.map((task: any) => (
                         <tr key={task.id} data-testid={`row-task-${task.id}`}>
                           <td className="px-6 py-4">
-                            <div className="max-w-xs">
-                              <div className="text-sm font-medium text-neutral-900 line-clamp-2">{task.name}</div>
+                            <div className="max-w-sm">
+                              <div className="text-sm font-medium text-neutral-900 text-truncate-2">{task.name}</div>
                               <div className="text-sm text-neutral-500">初始资金：¥{parseFloat(task.initialBudget).toLocaleString()}</div>
                             </div>
                           </td>
