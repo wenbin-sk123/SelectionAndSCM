@@ -410,9 +410,9 @@ export default function Tasks() {
                       tasks.map((task: any) => (
                         <tr key={task.id} data-testid={`row-task-${task.id}`}>
                           <td className="px-6 py-4 w-2/5">
-                            <div className="pr-4">
-                              <div className="text-sm font-medium text-neutral-900 text-truncate-2">{task.name}</div>
-                              <div className="text-sm text-neutral-500">初始资金：¥{parseFloat(task.initialBudget).toLocaleString()}</div>
+                            <div>
+                              <div className="text-sm font-medium text-neutral-900 text-truncate-2 pr-2">{task.name}</div>
+                              <div className="text-sm text-neutral-500 mt-1">初始资金：¥{parseFloat(task.initialBudget).toLocaleString()}</div>
                             </div>
                           </td>
                           <td className="px-6 py-4 w-1/6 whitespace-nowrap">
