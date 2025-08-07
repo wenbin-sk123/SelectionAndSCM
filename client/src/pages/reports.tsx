@@ -6,6 +6,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import LineChart from "@/components/charts/line-chart";
+import { chartColors } from "@/lib/chartColors";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -116,26 +117,26 @@ export default function Reports() {
       {
         label: '财务',
         data: [85, 88, 92, 95, 92],
-        borderColor: 'hsl(var(--success))',
-        backgroundColor: 'hsl(var(--success) / 0.1)',
+        borderColor: chartColors.primary.green,
+        backgroundColor: chartColors.gradients.greenGradient,
       },
       {
         label: '运营',
         data: [78, 82, 85, 88, 85],
-        borderColor: 'hsl(var(--primary))',
-        backgroundColor: 'hsl(var(--primary) / 0.1)',
+        borderColor: chartColors.primary.blue,
+        backgroundColor: chartColors.gradients.blueGradient,
       },
       {
         label: '市场',
         data: [80, 85, 88, 90, 88],
-        borderColor: 'hsl(var(--info))',
-        backgroundColor: 'hsl(var(--info) / 0.1)',
+        borderColor: chartColors.primary.purple,
+        backgroundColor: chartColors.gradients.purpleGradient,
       },
       {
         label: '风险',
         data: [72, 75, 78, 82, 78],
-        borderColor: 'hsl(var(--warning))',
-        backgroundColor: 'hsl(var(--warning) / 0.1)',
+        borderColor: chartColors.primary.amber,
+        backgroundColor: chartColors.gradients.amberGradient,
       },
     ],
   };

@@ -7,6 +7,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import InventoryAlert from "@/components/inventory-alert";
 import LineChart from "@/components/charts/line-chart";
+import { chartColors } from "@/lib/chartColors";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,14 +47,14 @@ export default function Inventory() {
       {
         label: '入库',
         data: [320, 432, 301, 334, 390, 330],
-        borderColor: 'hsl(var(--success))',
-        backgroundColor: 'hsl(var(--success) / 0.1)',
+        borderColor: chartColors.primary.green,
+        backgroundColor: chartColors.gradients.greenGradient,
       },
       {
         label: '出库',
         data: [220, 282, 201, 234, 290, 430],
-        borderColor: 'hsl(var(--destructive))',
-        backgroundColor: 'hsl(var(--destructive) / 0.1)',
+        borderColor: chartColors.primary.orange,
+        backgroundColor: chartColors.gradients.orangeGradient,
       },
     ],
   };

@@ -9,6 +9,7 @@ import KPICard from "@/components/kpi-card";
 import ActivityItem from "@/components/activity-item";
 import LineChart from "@/components/charts/line-chart";
 import PieChart from "@/components/charts/pie-chart";
+import { chartColors } from "@/lib/chartColors";
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -24,20 +25,20 @@ export default function Dashboard() {
       {
         label: '收入',
         data: [12000, 15000, 18000, 22000, 28000, 32000],
-        borderColor: 'hsl(var(--success))',
-        backgroundColor: 'hsl(var(--success) / 0.1)',
+        borderColor: chartColors.finance.income,
+        backgroundColor: chartColors.gradients.greenGradient,
       },
       {
         label: '支出',
         data: [8000, 9500, 11000, 13000, 16000, 18000],
-        borderColor: 'hsl(var(--destructive))',
-        backgroundColor: 'hsl(var(--destructive) / 0.1)',
+        borderColor: chartColors.finance.expense,
+        backgroundColor: chartColors.gradients.redGradient,
       },
       {
         label: '利润',
         data: [4000, 5500, 7000, 9000, 12000, 14000],
-        borderColor: 'hsl(var(--primary))',
-        backgroundColor: 'hsl(var(--primary) / 0.1)',
+        borderColor: chartColors.finance.profit,
+        backgroundColor: chartColors.gradients.blueGradient,
       },
     ],
   };
@@ -47,12 +48,7 @@ export default function Dashboard() {
     datasets: [
       {
         data: [35, 28, 25, 12],
-        backgroundColor: [
-          'hsl(var(--primary))',
-          'hsl(var(--success))',
-          'hsl(var(--info))',
-          'hsl(var(--warning))',
-        ],
+        backgroundColor: chartColors.getPieColors(4),
       },
     ],
   };

@@ -38,7 +38,7 @@ export default function Sidebar() {
   };
 
   return (
-    <nav className="bg-white shadow-lg w-64 min-h-screen flex-shrink-0" data-testid="sidebar">
+    <nav className="bg-white shadow-lg w-72 min-h-screen flex-shrink-0" data-testid="sidebar">
       <div className="p-4 border-b">
         <div className="flex items-center">
           <div className="bg-primary text-white w-10 h-10 rounded-full flex items-center justify-center mr-3">
@@ -54,7 +54,7 @@ export default function Sidebar() {
       </div>
 
       <div className="p-4">
-        <ul className="space-y-2">
+        <ul className="space-y-1">
           {navigation.map((item) => {
             const isActive = location === item.href;
             return (
@@ -62,15 +62,15 @@ export default function Sidebar() {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center p-2 rounded-md transition-colors block",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 whitespace-nowrap",
                     isActive
-                      ? "text-primary bg-primary/10"
-                      : "text-neutral-700 hover:bg-gray-100"
+                      ? "text-primary bg-gradient-to-r from-primary/10 to-primary/5 font-medium shadow-sm"
+                      : "text-neutral-700 hover:bg-gray-100 hover:text-neutral-900"
                   )}
                   data-testid={`nav-${item.name}`}
                 >
-                  <item.icon className="h-5 w-5 mr-3" />
-                  {item.name}
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  <span className="flex-1">{item.name}</span>
                 </Link>
               </li>
             );

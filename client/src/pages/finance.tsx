@@ -6,6 +6,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import LineChart from "@/components/charts/line-chart";
 import PieChart from "@/components/charts/pie-chart";
+import { chartColors } from "@/lib/chartColors";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp, PieChart as PieChartIcon, Download } from "lucide-react";
@@ -114,14 +115,14 @@ export default function Finance() {
           {
             label: '收入',
             data: revenueArray,
-            borderColor: 'hsl(var(--success))',
-            backgroundColor: 'hsl(var(--success) / 0.1)',
+            borderColor: chartColors.finance.income,
+            backgroundColor: chartColors.gradients.greenGradient,
           },
           {
             label: '成本',
             data: costArray,
-            borderColor: 'hsl(var(--destructive))',
-            backgroundColor: 'hsl(var(--destructive) / 0.1)',
+            borderColor: chartColors.finance.expense,
+            backgroundColor: chartColors.gradients.redGradient,
           },
         ],
       },
@@ -131,10 +132,10 @@ export default function Finance() {
           {
             data: costStructure.map(c => c.percentage),
             backgroundColor: costStructure.map(c => 
-              c.color === 'primary' ? 'hsl(var(--primary))' :
-              c.color === 'success' ? 'hsl(var(--success))' :
-              c.color === 'warning' ? 'hsl(var(--warning))' :
-              'hsl(var(--info))'
+              c.color === 'primary' ? chartColors.primary.blue :
+              c.color === 'success' ? chartColors.primary.green :
+              c.color === 'warning' ? chartColors.primary.amber :
+              chartColors.primary.cyan
             ),
           },
         ],

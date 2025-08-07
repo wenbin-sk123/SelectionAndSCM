@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import LineChart from "@/components/charts/line-chart";
 import BarChart from "@/components/charts/bar-chart";
+import { chartColors } from "@/lib/chartColors";
 import { Globe, Flame, Users, TrendingUp } from "lucide-react";
 
 export default function Market() {
@@ -43,8 +44,8 @@ export default function Market() {
       {
         label: '市场指数',
         data: [820, 932, 901, 934, 1290, 1330, 1320],
-        borderColor: 'hsl(var(--primary))',
-        backgroundColor: 'hsl(var(--primary) / 0.1)',
+        borderColor: chartColors.primary.blue,
+        backgroundColor: chartColors.gradients.blueGradient,
       },
     ],
   };
@@ -55,13 +56,7 @@ export default function Market() {
       {
         label: '市场份额 (%)',
         data: [25, 20, 18, 15, 12],
-        backgroundColor: [
-          'hsl(var(--primary))',
-          'hsl(var(--success))',
-          'hsl(var(--info))',
-          'hsl(var(--warning))',
-          'hsl(var(--destructive))',
-        ],
+        backgroundColor: chartColors.getPieColors(5),
       },
     ],
   };
