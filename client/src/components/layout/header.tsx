@@ -132,7 +132,11 @@ export default function Header({ title, breadcrumb }: HeaderProps) {
                 
                 <DropdownMenuSeparator />
                 
-                
+                <DropdownMenuItem onClick={() => setProfileDialogOpen(true)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>账号设置</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>退出登录</span>
